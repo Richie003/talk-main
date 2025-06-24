@@ -35,11 +35,11 @@ class CategorySerializer(serializers.ModelSerializer):
 class MarketPlaceProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
-    category = serializers.ChoiceField(
-        choices=Category.objects.values_list('name', 'id'),
-        write_only=True,
-        help_text="Select a category by name"
-    )
+    # category = serializers.ChoiceField(
+    #     choices=Category.objects.values_list('name', 'id'),
+    #     write_only=True,
+    #     help_text="Select a category by name"
+    # )
     class Meta:
         model = MarketPlaceProduct
         fields = [
@@ -97,11 +97,11 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
 class TakaProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
-    category = serializers.ChoiceField(
-        choices=Category.objects.values_list('name', 'id'),
-        write_only=True,
-        help_text="Select a category by name"
-    )
+    # category = serializers.ChoiceField(
+    #     choices=Category.objects.values_list('name', 'id'),
+    #     write_only=True,
+    #     help_text="Select a category by name"
+    # )
     class Meta:
         model = TakaProduct
         fields = [
