@@ -10,14 +10,14 @@ env/
 .env/
 
 # Django migrations folder (generated files)
-*/migrations/
-*/migrations/*.pyc
+# */migrations/
+# */migrations/*.pyc
 
 # Database files (don't track your local SQLite database)
 db.sqlite3
 
 # Django static files (optional, depending on your deployment strategy)
-staticfiles/
+# staticfiles/
 
 # Django media files (optional)
 media/
