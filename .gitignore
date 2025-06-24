@@ -1,0 +1,49 @@
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__
+
+# Python virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Django migrations folder (generated files)
+*/migrations/
+*/migrations/*.pyc
+
+# Database files (don't track your local SQLite database)
+db.sqlite3
+
+# Django static files (optional, depending on your deployment strategy)
+staticfiles/
+
+# Django media files (optional)
+media/
+
+# .env file to store sensitive environment variables (don't track in Git)
+.env
+
+# pyenv version files
+.python-version
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files (macOS, Windows)
+.DS_Store
+Thumbs.db
+
+# Coverage files
+.coverage
+*.coveragerc
+
+# Pytest cache
+.cache
+
+family.py
+events.py
