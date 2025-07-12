@@ -8,7 +8,8 @@ from .models import (
     TakaProductImage,
     TakaProductVideo,
     TakaReview,
-    Category
+    Category,
+    SavedItem
 )
 from utils.helpers import FormattedDateTimeField
 
@@ -35,11 +36,11 @@ class CategorySerializer(serializers.ModelSerializer):
 class MarketPlaceProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
-    # category = serializers.ChoiceField(
-    #     choices=Category.objects.values_list('name', 'id'),
-    #     write_only=True,
-    #     help_text="Select a category by name"
-    # )
+    category = serializers.ChoiceField(
+        choices=Category.objects.values_list('name', 'id'),
+        write_only=True,
+        help_text="Select a category by name"
+    )
     class Meta:
         model = MarketPlaceProduct
         fields = [
@@ -93,15 +94,14 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
         instance.save()
         return super().update(instance, validated_data)
 
-
 class TakaProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
-    # category = serializers.ChoiceField(
-    #     choices=Category.objects.values_list('name', 'id'),
-    #     write_only=True,
-    #     help_text="Select a category by name"
-    # )
+    category = serializers.ChoiceField(
+        choices=Category.objects.values_list('name', 'id'),
+        write_only=True,
+        help_text="Select a category by name"
+    )
     class Meta:
         model = TakaProduct
         fields = [
@@ -154,3 +154,19 @@ class TakaProductSerializer(serializers.ModelSerializer):
             instance.primary_image = validated_data['primary_image']
         instance.save()
         return super().update(instance, validated_data)
+
+
+class SavedItemsSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+
+    class Meta:
+        model = SavedItem
+        fields = [
+            "id",
+            "user",
+            "product",
+            "created",
+            "updated"
+        ]
+        read_only_fields = ["id", "user", "created", "updated"]
