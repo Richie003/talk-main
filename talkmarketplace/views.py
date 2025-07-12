@@ -6,13 +6,16 @@ from rest_framework.generics import (
     DestroyAPIView
 )
 from .models import (
+    Product,
     MarketPlaceProduct,
-    TakaProduct
+    TakaProduct,
+    SavedItem
 )
 from .serializers import (
     MarketPlaceProductSerializer, 
     TakaProductSerializer,
-    CategorySerializer
+    CategorySerializer,
+    SavedItemsSerializer
     )
 from rest_framework.mixins import RetrieveModelMixin, ListModelMixin
 from rest_framework.pagination import PageNumberPagination
@@ -20,13 +23,53 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import exceptions, status
+from django.shortcuts import get_object_or_404
 from utils.helpers import custom_response
 from drf_yasg.utils import swagger_auto_schema
 
 tag_names = {
     "marketplace":"Marketplace",
-    "taka":  "Taka"
-    }
+    "taka":  "Taka",
+    "inventory": "Inventory",
+}
+
+class SaveItemView(GenericAPIView):
+    """
+        Handles users item savings
+    """
+    serializer_class = SavedItemsSerializer
+    permission_classes = [IsAuthenticated]
+    @swagger_auto_schema(tags=[tag_names["inventory"]], operation_id="Save an item for later")
+
+    def post(self, request, *args, **kwargs):
+        product_id = request.data.get("product")
+        user = request.user
+        try:
+            product = get_object_or_404(Product, id=product_id)
+            instance, created = SavedItem.objects.get_or_create(user=user)
+            if created:
+                instance.save_item(product=product_id)
+            return Response(custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Item added successfully",
+                data=str(e)
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg="Failed to save item",
+                data=str(e)
+            ), status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist:
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="Product not found",
+                data=None
+            ), status=status.HTTP_404_NOT_FOUND)
+
 
 class MarketPlaceProductCreateView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
