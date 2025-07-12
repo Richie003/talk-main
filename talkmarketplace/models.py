@@ -17,7 +17,7 @@ def secondary_images_upload_path(instance, filename):
 def product_video_upload_path(instance, filename):
     return f"products/vids/{instance.service_provider.talk_id}/{slugify(instance.name)}-{filename}"
 
-class ProductMixin(ModelUtilsMixin, PolymorphicModel):
+class Product(ModelUtilsMixin, PolymorphicModel):
     """
     Base model for products in the marketplace.
     This model can be extended by other product models like MarketPlaceProduct and TakaProduct.
@@ -36,7 +36,7 @@ class ProductMixin(ModelUtilsMixin, PolymorphicModel):
     #     abstract = True
 
 
-class MarketPlaceProduct(ProductMixin):
+class MarketPlaceProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='marketplace_products')
     category = models.ForeignKey('Category', on_delete=models.CASCADE, null=False)
     def __str__(self):
@@ -115,7 +115,7 @@ class MarketPlaceProductReview(ModelUtilsMixin):
 
 # Everything TAKA...
 
-class TakaProduct(ProductMixin):
+class TakaProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='taka_products')
     category = models.ForeignKey('Category', on_delete=models.CASCADE, null=False)
     def __str__(self):
@@ -199,3 +199,34 @@ class Category(ModelUtilsMixin):
 
 class SavedItem(ModelUtilsMixin):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    product = models.ManyToManyField(Product, related_name='saved_items')
+
+    def __str__(self):
+        return f"{self.user.username}'s saved items"
+    
+    def save_item(self, product):
+        self.product.add(product)
+    
+    def remove_item(self, product):
+        self.product.remove(product)
+    
+    def get_saved_items(self):
+        return self.product.all()
+
+    def clear_saved_items(self):
+        self.product.clear()
+    
+    def is_item_saved(self, product):
+        return self.product.filter(id=product.id).exists()
+    
+    def get_user_saved_items(self):
+        return self.product.filter(saved_items__user=self.user)
+
+    def get_saved_item_count(self):
+        return self.product.count()
+    
+    def get_saved_item_details(self):
+        return [item.product_profile() for item in self.product.all()]
+    
+    def get_saved_item_by_id(self, product_id):
+        return self.product.filter(id=product_id).first().product_profile() if self.product.filter(id=product_id).exists() else None
