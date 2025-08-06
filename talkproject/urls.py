@@ -10,7 +10,7 @@ schema_view = get_schema_view(
         title="Talk's API",
         default_version='v1',
         description="""
-        This _API_ provides a solid foundation for managing users(`Individual` and `service provider`) interactions, 
+        This _API_ provides a solid foundation for managing users(`Individual` and `service provider`) interactions,
         messaging, business/services within the Talk platform.
         """,
     ),
@@ -21,7 +21,9 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('', schema_view.with_ui('swagger', cache_timeout=0),
+         name='schema-swagger-ui'),
     path('api/v1/auth/', include('talkapp.urls')),
     path('api/v1/products/', include('talkmarketplace.urls')),
+    path('api/v1/events/', include('talkcontent.urls')),
 ]

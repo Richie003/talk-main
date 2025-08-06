@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class CustomUserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
@@ -19,6 +20,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
         choices=["100", "200", "300", "400", "500", "graduate"],
         required=True,
     )
+
     class Meta:
         model = CustomUser
         fields = [
@@ -35,7 +37,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
             "policy"
         ]
         read_only_fields = ["id"]
-    
+
     def create(self, validated_data):
         user = CustomUser.objects.create(**validated_data)
         user.set_password(validated_data["password"])
@@ -69,14 +71,17 @@ class IndividualSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
     def create(self, validated_data):
-        individual = Individual.objects.create(user=self.context.get('request').user, **validated_data)
+        individual = Individual.objects.create(
+            user=self.context.get('request').user, **validated_data)
         individual.save()
         return individual
-    
+
     def update(self, instance, validated_data):
         if validated_data:
-            instance.phone_number = validated_data.get("phone_number", instance.phone_number)
-            instance.date_of_birth = validated_data.get("date_of_birth", instance.date_of_birth)
+            instance.phone_number = validated_data.get(
+                "phone_number", instance.phone_number)
+            instance.date_of_birth = validated_data.get(
+                "date_of_birth", instance.date_of_birth)
             instance.save()
         return instance
 
@@ -85,35 +90,44 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "user", "address_verified"]
+        read_only_fields = ["id", "created_at",
+                            "updated_at", "user", "address_verified"]
 
     def create(self, validated_data):
         try:
-            service_provider = ServiceProvider.objects.create(user=self.context.get('request').user, **validated_data)
+            service_provider = ServiceProvider.objects.create(
+                user=self.context.get('request').user, **validated_data)
             service_provider.save()
             return service_provider
         except Exception as e:
             raise serializers.ValidationError({"error": str(e)})
-    
+
     def update(self, instance, validated_data):
         if validated_data:
-            instance.business_name = validated_data.get("business_name", instance.business_name)
-            instance.business_email = validated_data.get("business_email", instance.business_email)
-            instance.business_tel = validated_data.get("business_tel", instance.business_tel)
-            instance.business_type = validated_data.get("business_type", instance.business_type)
+            instance.business_name = validated_data.get(
+                "business_name", instance.business_name)
+            instance.business_email = validated_data.get(
+                "business_email", instance.business_email)
+            instance.business_tel = validated_data.get(
+                "business_tel", instance.business_tel)
+            instance.business_type = validated_data.get(
+                "business_type", instance.business_type)
             instance.address = validated_data.get("address", instance.address)
-            instance.description = validated_data.get("description", instance.description)
+            instance.description = validated_data.get(
+                "description", instance.description)
             instance.save()
         return instance
+
 
 class UpdateUserProfileSerializer(serializers.ModelSerializer):
     level = serializers.ChoiceField(
         choices=["100", "200", "300", "400", "500", "graduate"],
         required=True,
     )
+
     class Meta:
         model = CustomUser
-        fields =[
+        fields = [
             "email",
             "first_name",
             "last_name",
@@ -124,22 +138,28 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
         def update(self, instance, validated_data):
             if validated_data:
                 instance.email = validated_data.get("email", instance.email)
-                instance.first_name = validated_data.get("first_name", instance.first_name)
-                instance.last_name = validated_data.get("last_name", instance.last_name)
+                instance.first_name = validated_data.get(
+                    "first_name", instance.first_name)
+                instance.last_name = validated_data.get(
+                    "last_name", instance.last_name)
                 instance.level = validated_data.get("level", instance.level)
-                instance.registration_number = validated_data.get("registration_number", instance.registration_number)
+                instance.registration_number = validated_data.get(
+                    "registration_number", instance.registration_number)
                 instance.save()
             return instance
 
+
 class SetNewPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(required=True)
-    password = serializers.CharField(required=True, validators=[validate_password])
+    password = serializers.CharField(
+        required=True, validators=[validate_password])
 
     class Meta:
         fields = ["token", "password"]
 
     def create(self, validated_data):
         return validated_data
+
 
 class OTPVerificationSerializer(serializers.Serializer):
     otp_code = serializers.CharField(required=True)
@@ -149,6 +169,7 @@ class OTPVerificationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return validated_data
+
 
 class ResendEmailActivationSerializer(serializers.Serializer):
     """
@@ -174,5 +195,3 @@ class ResendEmailActivationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return validated_data
-
-
