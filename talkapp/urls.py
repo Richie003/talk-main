@@ -1,10 +1,10 @@
 from django.urls import path
 from .views import (
-    CreateUserViewSet, 
-    SetNewPassword, 
-    ForgotPassword, 
-    LoginView, 
-    VerifyOTP, 
+    CreateUserViewSet,
+    SetNewPassword,
+    ForgotPassword,
+    LoginView,
+    VerifyOTP,
     ResendOTP,
     UpdateUserProfileViewSet,
     UpdateServiceProviderProfileViewSet,
@@ -24,7 +24,10 @@ urlpatterns = [
     # user profile
     path("update-bio", UpdateUserProfileViewSet.as_view(), name="update_profile"),
     path("create-individual-profile", CreateIndividualViewSet.as_view()),
-    path("create-service-provider-profile", CreateServiceProvidersViewSet.as_view()),
-    path("update-service-provider-profile", UpdateServiceProviderProfileViewSet.as_view(), name="update_service_provider_profile"),
-    path("update-individual-profile", UpdateIndividualProfileViewSet.as_view(), name="update_individual_profile")
+    path("create-service-provider-profile",
+         CreateServiceProvidersViewSet.as_view()),
+    path("update-service-provider-profile", UpdateServiceProviderProfileViewSet.as_view(),
+         name="update_service_provider_profile"),
+    path("update-individual-profile", UpdateIndividualProfileViewSet.as_view(),
+         name="update_individual_profile")
 ]

@@ -11,6 +11,7 @@ from .views import (
     ProvidersTakaProductListView,
     TakaProductUpdateView,
     TakaProductDeleteView,
+    DeleteSavedItemView,
     SaveItemView
 )
 marketplace_urlpatterns = [
@@ -30,7 +31,8 @@ taka_urlpatterns = [
 ]
 
 urlpatterns = [
-    path("marketplace/", include(marketplace_urlpatterns)), 
+    path("marketplace/", include(marketplace_urlpatterns)),
     path("taka/", include(taka_urlpatterns)),
-    path("save-items/", SaveItemView.as_view())
+    path("save-items/", SaveItemView.as_view()),
+    path('inventory/saved-items/<int:product_id>/delete/', DeleteSavedItemView.as_view(), name='delete_saved_item'),
 ]

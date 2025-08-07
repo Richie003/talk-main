@@ -50,14 +50,18 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
     username = None
     talk_id = models.CharField(max_length=10, unique=True, blank=True)
     email = models.EmailField(unique=True, blank=True)
-    gender = models.CharField(max_length=10, default="male", choices=[("male", "Male"), ("female", "Female")])
+    gender = models.CharField(max_length=10, default="male", choices=[
+                              ("male", "Male"), ("female", "Female")])
     university = models.CharField(max_length=100, blank=True)
-    level = models.CharField(default=Level.LEVEL_100, max_length=100, blank=False, choices=Level.choices())
+    level = models.CharField(
+        default=Level.LEVEL_100, max_length=100, blank=False, choices=Level.choices())
     registration_number = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    user_role = models.CharField(max_length=20, default=UserRole.SERVICE_PROVIDERS, choices=UserRole.choices())
+    user_role = models.CharField(
+        max_length=20, default=UserRole.SERVICE_PROVIDERS, choices=UserRole.choices())
     policy = models.BooleanField(default=False, blank=True)
-    availability = models.CharField(max_length=20, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE)
+    availability = models.CharField(max_length=20, choices=AvailabilityStatus.choices(
+    ), default=AvailabilityStatus.AVAILABLE)
     email_verified = models.BooleanField(default=False, blank=True)
     marketing_emails = models.BooleanField(default=False, blank=True)
 
@@ -104,7 +108,8 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
     def clean(self):
         if self.talk_id:
             if not re.match(r"^[A-Z]{2}\d{5}$", self.talk_id):
-                raise ValidationError("talk_id must be 2 uppercase letters followed by 5 digits (e.g., AB12345)")
+                raise ValidationError(
+                    "talk_id must be 2 uppercase letters followed by 5 digits (e.g., AB12345)")
 
     def save(self, *args, **kwargs):
         if not self.talk_id and self.first_name and self.last_name:
@@ -122,10 +127,12 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
         else:
             super().save(*args, **kwargs)
 
+
 @receiver(post_save, sender=CustomUser)
 def create_otp_for_new_user(sender, instance, created, **kwargs):
     if created:
         OneTimePassword.objects.create(user=instance)
+
 
 class OneTimePassword(ModelUtilsMixin):
     user = models.ForeignKey(user, on_delete=models.CASCADE)
@@ -135,12 +142,13 @@ class OneTimePassword(ModelUtilsMixin):
 
     def __str__(self):
         return f"OTP for {self.user.email} - {self.otp}"
-    
+
     def save(self, *args, **kwargs):
         if not self.otp:
             self.otp = ''.join(random.choices(string.digits, k=6))
             self.expires_at = timezone.now() + timezone.timedelta(minutes=5)
         super().save(*args, **kwargs)
+
 
 class Individual(ModelUtilsMixin):
     user = models.OneToOneField(
@@ -152,13 +160,15 @@ class Individual(ModelUtilsMixin):
 
     def __str__(self):
         return str(self.user)
-    
+
     def get_profile_photo(self):
         return IndividualProfilePhoto.objects.get(individual_id=self.id)
+
 
 class IndividualProfilePhoto(ModelUtilsMixin):
     individual_id = models.OneToOneField(Individual, on_delete=models.CASCADE)
     photo = models.FileField(upload_to='logos/', blank=True)
+
 
 class ServiceProvider(ModelUtilsMixin):
     user = models.OneToOneField(
@@ -175,21 +185,23 @@ class ServiceProvider(ModelUtilsMixin):
 
     def __str__(self):
         return str(self.business_name)
-    
+
     def get_logo(self):
         return ServiceProviderLogo.objects.get(service_provider_id=self.id)
 
+
 class ServiceProviderLogo(ModelUtilsMixin):
-    service_provider_id = models.OneToOneField(ServiceProvider, on_delete=models.CASCADE)
+    service_provider_id = models.OneToOneField(
+        ServiceProvider, on_delete=models.CASCADE)
     logo = models.FileField(upload_to='logos/', blank=True)
 
+
 class Review(models.Model):
-    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
+    service_provider = models.ForeignKey(
+        ServiceProvider, on_delete=models.CASCADE)
     user = models.ForeignKey(user, on_delete=models.CASCADE)
     rating = models.IntegerField()
     comment = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user} rated {self.service_provider} with {self.rating}"
-
-

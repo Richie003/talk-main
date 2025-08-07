@@ -13,7 +13,7 @@ class CollegeCourses:
         ],
         "Engineering": [
             "Civil Engineering",
-        "Electrical and Electronics Engineering",
+            "Electrical and Electronics Engineering",
             "Electrical/Electronics Engineering",
             "Chemical Engineering",
             "Computer Engineering",
@@ -92,15 +92,16 @@ class CollegeCourses:
 
     def __init__(self):
         self.courses = self.courses_offered
-    
+
     def get_courses_offered(self):
         return self.courses
 
     def get_courses_by_category(self, category):
         return self.courses.get(category, [])
 
-    def get_all_courses(self):  
-        all_courses = [course for courses in self.courses.values() for course in courses]
+    def get_all_courses(self):
+        all_courses = [course for courses in self.courses.values()
+                       for course in courses]
         return all_courses
 
     def get_all_categories(self):

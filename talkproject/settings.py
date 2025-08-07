@@ -17,7 +17,6 @@ from pathlib import Path
 import environ
 
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -138,8 +137,6 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
-
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
@@ -148,7 +145,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'talkapp.CustomUser'
 
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS')
+# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS')
 
 REST_FRAMEWORK = {
     'NON_FIELD_ERRORS_KEY': 'error',
@@ -156,15 +153,15 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
-    
+
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    
+
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
-    
+
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
@@ -204,13 +201,13 @@ SWAGGER_SETTINGS = {
     ],
 
 }
-CLIENT_SITE_URL=env("CLIENT_SITE_URL")
-CORS_ALLOW_ALL_ORIGINS=bool(env("CORS_ALLOW_ALL_ORIGINS"))
-CORS_ALLOW_CREDENTIALS=bool(env("CORS_ALLOW_CREDENTIALS"))
+CLIENT_SITE_URL = env("CLIENT_SITE_URL")
+CORS_ALLOW_ALL_ORIGINS = bool(env("CORS_ALLOW_ALL_ORIGINS"))
+CORS_ALLOW_CREDENTIALS = bool(env("CORS_ALLOW_CREDENTIALS"))
 #  Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env("EMAIL_HOST")
-EMAIL_HOST_USER= env("EMAIL_HOST_USER")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 EMAIL_PORT = env.int("EMAIL_PORT")
 EMAIL_USE_TLS = False
