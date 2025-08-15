@@ -92,3 +92,21 @@ class Event(models.Model):
 
     def __str__(self):
         return self.event_name
+
+
+class News(models.Model):
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+
+class NewsImage(models.Model):
+    news = models.ForeignKey(
+        News, related_name='images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='news_images/')
+
+    def __str__(self):
+        return f"Image for: {self.news.title}"
