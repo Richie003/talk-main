@@ -7,15 +7,18 @@ from rest_framework.generics import (
 )
 from .models import (
     Product,
+    Category,
     MarketPlaceProduct,
     TakaProduct,
     SavedItem
 )
 from .serializers import (
-    MarketPlaceProductSerializer,
+    MarketPlaceProductSerializer, 
     TakaProductSerializer,
     CategorySerializer,
-    SavedItemsSerializer
+    SavedItemsSerializer,
+    MarketPlaceProductImageSerializer,
+    TakaProductImageSerializer
 )
 from rest_framework.mixins import RetrieveModelMixin, ListModelMixin
 from rest_framework.pagination import PageNumberPagination
@@ -24,15 +27,16 @@ from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import exceptions, status
 from django.shortcuts import get_object_or_404
+from rest_framework.parsers import MultiPartParser, FormParser
 from utils.helpers import custom_response
 from drf_yasg.utils import swagger_auto_schema
 
 tag_names = {
     "marketplace": "Marketplace",
-    "taka":  "Taka",
+    "taka": "Taka",
     "inventory": "Inventory",
+    "category": "Category"
 }
-
 
 class SaveItemView(GenericAPIView):
     """
@@ -40,8 +44,8 @@ class SaveItemView(GenericAPIView):
     """
     serializer_class = SavedItemsSerializer
     permission_classes = [IsAuthenticated]
-
     @swagger_auto_schema(tags=[tag_names["inventory"]], operation_id="Save an item for later")
+
     def post(self, request, *args, **kwargs):
         product_id = request.data.get("product")
         user = request.user
@@ -71,19 +75,35 @@ class SaveItemView(GenericAPIView):
                 data=None
             ), status=status.HTTP_404_NOT_FOUND)
 
+class CategoryView(GenericAPIView):
+    """
+     Returns all category existing in the DB
+    """
+
+    serializer_class = CategorySerializer
+    queryset = Category.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(tags=[tag_names["category"]], operation_id="Get all categories")
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class MarketPlaceProductCreateView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
-    model = MarketPlaceProduct
+    queryset = MarketPlaceProduct.objects.all()
     permission_classes = [IsAuthenticated]
-
+    parser_classes = [MultiPartParser, FormParser]
     @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Create and upload a product")
+
     def post(self, request, *args, **kwargs):
         data = request.data
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(
+        try:
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(
             custom_response(
                 status_mthd=status.HTTP_200_OK,
                 status="success",
@@ -92,6 +112,41 @@ class MarketPlaceProductCreateView(GenericAPIView):
             ),
             status=status.HTTP_200_OK
         )
+        except Exception as e:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="Failed to create product",
+                    data=str(e)
+                ),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class UploadMarketPlaceProductImageView(GenericAPIView):
+    serializer_class = MarketPlaceProductImageSerializer
+    queryset = MarketPlaceProduct.objects.all()
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Upload an image for a product")
+    def post(self, request, product_id=None):
+        product = get_object_or_404(MarketPlaceProduct, id=product_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        serializer.save(product=product)
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Image uploaded successfully",
+                data=serializer.data
+            ),
+            status=status.HTTP_201_CREATED
+        )
+
 
 
 class ListMarketPlaceProductsView(ListAPIView):
@@ -145,7 +200,7 @@ class ProvidersMarketPlaceProductListView(GenericAPIView):
         if not user_id:
             raise exceptions.NotAuthenticated("User not authenticated")
 
-        queryset = MarketPlaceProduct.objects.filter(service_provider=user_id)
+        queryset = MarketPlaceProduct.objects.filter(user=user_id)
         page = self.paginate_queryset(queryset)
 
         if page is not None:
@@ -179,10 +234,11 @@ class MarketPlaceProductUpdateView(UpdateAPIView):
     serializer_class = MarketPlaceProductSerializer
     queryset = MarketPlaceProduct.objects.all()
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     lookup_field = 'slug'
     http_method_names = ['patch']
 
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Update a product")
+    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Update a product")    
     def patch(self, request, *args, **kwargs):
         slug = kwargs.get('slug')
         try:
@@ -190,8 +246,7 @@ class MarketPlaceProductUpdateView(UpdateAPIView):
         except ObjectDoesNotExist:
             raise exceptions.NotFound("Product not found")
 
-        serializer = self.get_serializer(
-            product, data=request.data, partial=True)
+        serializer = self.get_serializer(product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -204,7 +259,6 @@ class MarketPlaceProductUpdateView(UpdateAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class MarketPlaceProductDeleteView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
@@ -232,29 +286,52 @@ class MarketPlaceProductDeleteView(GenericAPIView):
         )
 
 #### ---- TAKA ---- ####
-
-
 class TakaProductCreateView(GenericAPIView):
     serializer_class = TakaProductSerializer
     model = TakaProduct
     permission_classes = [IsAuthenticated]
-
+    parser_classes = [MultiPartParser, FormParser]
     @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Create and upload a product")
+
     def post(self, request, *args, **kwargs):
         data = request.data
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
+        custom_response(
+            status_mthd=status.HTTP_200_OK,
+            status="success",
+            mssg="Data retrieved successfully",
+            data=serializer.data
+        ),
+        status=status.HTTP_200_OK
+    )
+
+class UploadTakaProductImageView(CreateAPIView):
+    serializer_class = TakaProductImageSerializer
+    queryset = TakaProduct.objects.all()
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+
+    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Upload an image for a product")
+    def post(self, request, product_id=None):
+        product = get_object_or_404(TakaProduct, id=product_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        serializer.save(product=product)
+
+        return Response(
             custom_response(
-                status_mthd=status.HTTP_200_OK,
+                status_mthd=status.HTTP_201_CREATED,
                 status="success",
-                mssg="Data retrieved successfully",
+                mssg="Image uploaded successfully",
                 data=serializer.data
             ),
-            status=status.HTTP_200_OK
+            status=status.HTTP_201_CREATED
         )
-
 
 class ListTakaProductsView(ListAPIView):
     """Lists all products with pagination and filtering."""
@@ -344,7 +421,7 @@ class TakaProductUpdateView(UpdateAPIView):
     lookup_field = 'slug'
     http_method_names = ['patch']
 
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Update a product")
+    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Update a product")    
     def patch(self, request, *args, **kwargs):
         slug = kwargs.get('slug')
         try:
@@ -352,8 +429,7 @@ class TakaProductUpdateView(UpdateAPIView):
         except ObjectDoesNotExist:
             raise exceptions.NotFound("Product not found")
 
-        serializer = self.get_serializer(
-            product, data=request.data, partial=True)
+        serializer = self.get_serializer(product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -366,7 +442,6 @@ class TakaProductUpdateView(UpdateAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class TakaProductDeleteView(GenericAPIView):
     serializer_class = TakaProductSerializer
@@ -392,41 +467,3 @@ class TakaProductDeleteView(GenericAPIView):
             ),
             status=status.HTTP_204_NO_CONTENT
         )
-# Delete Saved Items
-
-
-class DeleteSavedItemView(GenericAPIView):
-    """
-        Deletes a saved product for the authenticated user
-    """
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(tags=[tag_names["inventory"]], operation_id="Delete a saved item")
-    def delete(self, request, *args, **kwargs):
-        product_id = kwargs.get('product_id')
-        user = request.user
-
-        try:
-            product = get_object_or_404(Product, id=product_id)
-            saved_instance = SavedItem.objects.get(user=user)
-
-            if saved_instance.is_item_saved(product):
-                saved_instance.remove_item(product)
-                return Response(custom_response(
-                    status_mthd=status.HTTP_204_NO_CONTENT,
-                    status="success",
-                    mssg="Item removed from saved list"
-                ), status=status.HTTP_204_NO_CONTENT)
-
-            return Response(custom_response(
-                status_mthd=status.HTTP_404_NOT_FOUND,
-                status="error",
-                mssg="Item was not in saved list"
-            ), status=status.HTTP_404_NOT_FOUND)
-
-        except SavedItem.DoesNotExist:
-            return Response(custom_response(
-                status_mthd=status.HTTP_404_NOT_FOUND,
-                status="error",
-                mssg="No saved items for user"
-            ), status=status.HTTP_404_NOT_FOUND)
