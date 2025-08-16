@@ -8,7 +8,7 @@ class CustomRefreshToken(RefreshToken):
         data = {
             'user_id': user.id,
             'email': user.email,
-            'user_role': user.user_role,
+            'user_role': eval(user.user_role)[0],
         }
         
         payload.update(data)

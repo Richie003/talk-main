@@ -1,21 +1,25 @@
 from django.urls import path, include
 from .views import (
+    CategoryView,
     MarketPlaceProductCreateView,
+    UploadMarketPlaceProductImageView,
     ListMarketPlaceProductsView,
     ProvidersMarketPlaceProductListView,
     MarketPlaceProductUpdateView,
     MarketPlaceProductDeleteView,
 
     TakaProductCreateView,
+    UploadTakaProductImageView,
     ListTakaProductsView,
     ProvidersTakaProductListView,
     TakaProductUpdateView,
     TakaProductDeleteView,
-    DeleteSavedItemView,
     SaveItemView
 )
+
 marketplace_urlpatterns = [
     path('create-product/', MarketPlaceProductCreateView.as_view(), name='create_product'),
+    path('upload-product-image/<str:product_id>', UploadMarketPlaceProductImageView.as_view(), name='upload_product_image'),
     path('list-products/', ListMarketPlaceProductsView.as_view(), name='list_products'),
     path('providers-products/', ProvidersMarketPlaceProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', MarketPlaceProductUpdateView.as_view(), name='product_detail'),
@@ -24,6 +28,7 @@ marketplace_urlpatterns = [
 
 taka_urlpatterns = [
     path('create-product/', TakaProductCreateView.as_view(), name='create_product'),
+    path('upload-product-image/<str:product_id>', UploadTakaProductImageView.as_view(), name='upload_product_image'),
     path('list-products/', ListTakaProductsView.as_view(), name='list_products'),
     path('providers-products/', ProvidersTakaProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', TakaProductUpdateView.as_view(), name='product_detail'),
@@ -31,8 +36,8 @@ taka_urlpatterns = [
 ]
 
 urlpatterns = [
-    path("marketplace/", include(marketplace_urlpatterns)),
+    path("get-categories", CategoryView.as_view(), name="get_categories"),
+    path("marketplace/", include(marketplace_urlpatterns)), 
     path("taka/", include(taka_urlpatterns)),
-    path("save-items/", SaveItemView.as_view()),
-    path('inventory/saved-items/<int:product_id>/delete/', DeleteSavedItemView.as_view(), name='delete_saved_item'),
+    path("save-items/", SaveItemView.as_view())
 ]
