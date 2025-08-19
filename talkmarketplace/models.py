@@ -25,8 +25,10 @@ class Product(ModelUtilsMixin, PolymorphicModel):
     name = models.CharField(max_length=255, null=False)
     slug = models.SlugField(unique=True, null=False, blank=True)
     description = models.TextField(null=False)
-    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False)
-    address = models.CharField(max_length=255, null=False)
+    category = models.CharField(max_length=225, blank=True, default="None")
+    tag = models.CharField(max_length=225, blank=True, default="None")
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
     negotiable = models.BooleanField(default=False)
     primary_image = models.ImageField(upload_to=primary_image_upload_path, null=True, blank=True)
     approved = models.BooleanField(default=False)
@@ -38,7 +40,6 @@ class Product(ModelUtilsMixin, PolymorphicModel):
 
 class MarketPlaceProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='marketplace_products')
-    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
         return str(self.name)
 
@@ -57,8 +58,10 @@ class MarketPlaceProduct(Product):
                 "name": self.name,
                 "slug": self.slug,
                 "description": self.description,
-                "category": self.category.name,
+                "category": self.category,
+                "tag": self.tag,
                 "price": str(self.price),
+                "discount": str(self.discount),
                 "primary_image": self.primary_image.url if self.primary_image else None,
                 "extra_images": self.get_images(),
                 "videos": self.get_videos(),
@@ -117,7 +120,6 @@ class MarketPlaceProductReview(ModelUtilsMixin):
 
 class TakaProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='taka_products')
-    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=False)
     def __str__(self):
         return str(self.name)
 
@@ -135,8 +137,9 @@ class TakaProduct(Product):
                 "name": self.name,
                 "slug": self.slug,
                 "description": self.description,
-                "category": self.category.name,
+                "tag": self.tag,
                 "price": str(self.price),
+                "discount": str(self.discount),
                 "primary_image": self.primary_image.url,
                 "extra_images": self.get_images(),
                 "videos": self.get_videos(),
@@ -189,12 +192,6 @@ class TakaReview(ModelUtilsMixin):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     rating = models.IntegerField(validators=[MinValueValidator(1)])
     comment = models.TextField(null=True, blank=True)
-
-class Category(ModelUtilsMixin):
-    name = models.CharField(max_length=255, unique=True)
-
-    def __str__(self):
-        return str(self.name)
 
 class SavedItem(ModelUtilsMixin):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

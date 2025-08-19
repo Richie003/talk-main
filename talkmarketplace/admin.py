@@ -8,7 +8,6 @@ from .models import (
     TakaProductImage, 
     TakaProductVideo, 
     TakaReview, 
-    Category
 )
 
 # Register your models here.
@@ -21,4 +20,3 @@ admin.site.register(TakaProduct)
 admin.site.register(TakaProductImage)
 admin.site.register(TakaProductVideo)
 admin.site.register(TakaReview)
-admin.site.register(Category)

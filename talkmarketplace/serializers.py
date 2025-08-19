@@ -8,30 +8,9 @@ from .models import (
     TakaProductImage,
     TakaProductVideo,
     TakaReview,
-    Category,
     SavedItem
 )
 from utils.helpers import FormattedDateTimeField
-
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name']
-        read_only_fields = ['id']
-        extra_kwargs = {
-            'name': {'required': True}
-        }
-        def create(self, validated_data):
-            return Category.objects.create(**validated_data)
-        def update(self, instance, validated_data):
-            instance.name = validated_data.get('name', instance.name)
-            instance.save()
-            return instance
-        def delete(self, instance):
-            instance.delete()
-            return instance
-        def get(self, instance):
-            return Category.objects.all()
 
 class MarketPlaceProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
@@ -44,8 +23,9 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "category",
+            "tag",
             "price",
-            "address",
+            "discount",
             "negotiable",
             "primary_image",
             "user",
@@ -57,16 +37,6 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
         write_only_fields = ["category",]
 
-    # def validate_category(self, value):
-    #     """
-    #     Convert the category name to its corresponding UUID.
-    #     """
-    #     try:
-    #         category = Category.objects.get(name=value)
-    #         print("Category found:", category.id)
-    #         return category.name  # Replace with `category.uuid` if UUID is used
-    #     except Category.DoesNotExist:
-    #         raise serializers.ValidationError(f"Category '{value}' does not exist.")
 
     
     def create(self, validated_data):
@@ -93,11 +63,6 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
 class TakaProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
-    category = serializers.ChoiceField(
-        choices=Category.objects.values_list('name', 'id'),
-        write_only=True,
-        help_text="Select a category by name"
-    )
     class Meta:
         model = TakaProduct
         fields = [
@@ -106,8 +71,9 @@ class TakaProductSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "category",
+            "tag",
             "price",
-            "address",
+            "discount",
             "negotiable",
             "primary_image",
             "user",
@@ -118,16 +84,6 @@ class TakaProductSerializer(serializers.ModelSerializer):
 
         read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
         write_only_fields = ["category",]
-
-    def validate_category(self, value):
-        """
-        Convert the category name to its corresponding UUID.
-        """
-        try:
-            category = Category.objects.get(name=value)
-            return category.id  # Replace with `category.uuid` if UUID is used
-        except Category.DoesNotExist:
-            raise serializers.ValidationError(f"Category '{value}' does not exist.")
 
     
     def create(self, validated_data):
@@ -171,7 +127,6 @@ class MarketPlaceProductImageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return MarketPlaceProductImage.objects.create(**validated_data)
-
 
 class TakaProductImageSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(required=True)

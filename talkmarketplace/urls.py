@@ -1,6 +1,5 @@
 from django.urls import path, include
 from .views import (
-    CategoryView,
     MarketPlaceProductCreateView,
     UploadMarketPlaceProductImageView,
     ListMarketPlaceProductsView,
@@ -36,7 +35,6 @@ taka_urlpatterns = [
 ]
 
 urlpatterns = [
-    path("get-categories", CategoryView.as_view(), name="get_categories"),
     path("marketplace/", include(marketplace_urlpatterns)), 
     path("taka/", include(taka_urlpatterns)),
     path("save-items/", SaveItemView.as_view())
