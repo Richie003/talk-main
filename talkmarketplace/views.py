@@ -7,7 +7,6 @@ from rest_framework.generics import (
 )
 from .models import (
     Product,
-    Category,
     MarketPlaceProduct,
     TakaProduct,
     SavedItem
@@ -15,7 +14,6 @@ from .models import (
 from .serializers import (
     MarketPlaceProductSerializer, 
     TakaProductSerializer,
-    CategorySerializer,
     SavedItemsSerializer,
     MarketPlaceProductImageSerializer,
     TakaProductImageSerializer
@@ -35,7 +33,6 @@ tag_names = {
     "marketplace": "Marketplace",
     "taka": "Taka",
     "inventory": "Inventory",
-    "category": "Category"
 }
 
 class SaveItemView(GenericAPIView):
@@ -75,20 +72,6 @@ class SaveItemView(GenericAPIView):
                 data=None
             ), status=status.HTTP_404_NOT_FOUND)
 
-class CategoryView(GenericAPIView):
-    """
-     Returns all category existing in the DB
-    """
-
-    serializer_class = CategorySerializer
-    queryset = Category.objects.all()
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(tags=[tag_names["category"]], operation_id="Get all categories")
-    def get(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class MarketPlaceProductCreateView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
