@@ -81,23 +81,21 @@ class GroupChat(ModelUtilsMixin):
         return self.group_name
 
 
-class Event(models.Model):
+class Event(ModelUtilsMixin):
     event_name = models.CharField(max_length=255)
     event_image = models.ImageField(
         upload_to='events/images/', null=True, blank=True)
     event_date = models.DateTimeField()
     event_fees = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.event_name
 
 
-class News(models.Model):
+class News(ModelUtilsMixin):
     title = models.CharField(max_length=255)
     body = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
