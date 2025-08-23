@@ -15,10 +15,7 @@ from .serializers import (
     MarketPlaceProductSerializer, 
     TakaProductSerializer,
     SavedItemsSerializer,
-    MarketPlaceProductImageSerializer,
-    TakaProductImageSerializer
 )
-from rest_framework.mixins import RetrieveModelMixin, ListModelMixin
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -78,23 +75,30 @@ class MarketPlaceProductCreateView(GenericAPIView):
     queryset = MarketPlaceProduct.objects.all()
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Create and upload a product")
 
+    @swagger_auto_schema(
+        tags=[tag_names["marketplace"]], 
+        operation_id="Create and upload a product"
+    )
     def post(self, request, *args, **kwargs):
-        data = request.data
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request}
+        )
         try:
-            serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
+
             return Response(
-            custom_response(
-                status_mthd=status.HTTP_200_OK,
-                status="success",
-                mssg="Data retrieved successfully",
-                data=serializer.data
-            ),
-            status=status.HTTP_200_OK
-        )
+                custom_response(
+                    status_mthd=status.HTTP_201_CREATED,
+                    status="success",
+                    mssg="Product created successfully",
+                    data=serializer.data
+                ),
+                status=status.HTTP_201_CREATED
+            )
+
         except Exception as e:
             return Response(
                 custom_response(
@@ -105,31 +109,6 @@ class MarketPlaceProductCreateView(GenericAPIView):
                 ),
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-class UploadMarketPlaceProductImageView(GenericAPIView):
-    serializer_class = MarketPlaceProductImageSerializer
-    queryset = MarketPlaceProduct.objects.all()
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Upload an image for a product")
-    def post(self, request, product_id=None):
-        product = get_object_or_404(MarketPlaceProduct, id=product_id)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        serializer.save(product=product)
-
-        return Response(
-            custom_response(
-                status_mthd=status.HTTP_201_CREATED,
-                status="success",
-                mssg="Image uploaded successfully",
-                data=serializer.data
-            ),
-            status=status.HTTP_201_CREATED
-        )
-
 
 
 class ListMarketPlaceProductsView(ListAPIView):
@@ -169,7 +148,6 @@ class ListMarketPlaceProductsView(ListAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class ProvidersMarketPlaceProductListView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
@@ -211,7 +189,6 @@ class ProvidersMarketPlaceProductListView(GenericAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class MarketPlaceProductUpdateView(UpdateAPIView):
     serializer_class = MarketPlaceProductSerializer
@@ -274,47 +251,37 @@ class TakaProductCreateView(GenericAPIView):
     model = TakaProduct
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Create and upload a product")
-
-    def post(self, request, *args, **kwargs):
-        data = request.data
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(
-        custom_response(
-            status_mthd=status.HTTP_200_OK,
-            status="success",
-            mssg="Data retrieved successfully",
-            data=serializer.data
-        ),
-        status=status.HTTP_200_OK
-    )
-
-class UploadTakaProductImageView(CreateAPIView):
-    serializer_class = TakaProductImageSerializer
-    queryset = TakaProduct.objects.all()
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
     
-
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Upload an image for a product")
-    def post(self, request, product_id=None):
-        product = get_object_or_404(TakaProduct, id=product_id)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        serializer.save(product=product)
-
-        return Response(
-            custom_response(
-                status_mthd=status.HTTP_201_CREATED,
-                status="success",
-                mssg="Image uploaded successfully",
-                data=serializer.data
-            ),
-            status=status.HTTP_201_CREATED
+    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Create and upload a product")
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data,
+            context={"request": request}
         )
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_201_CREATED,
+                    status="success",
+                    mssg="Product created successfully",
+                    data=serializer.data
+                ),
+                status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="Failed to create product",
+                    data=str(e)
+                ),
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class ListTakaProductsView(ListAPIView):
     """Lists all products with pagination and filtering."""
@@ -353,7 +320,6 @@ class ListTakaProductsView(ListAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class ProvidersTakaProductListView(GenericAPIView):
     serializer_class = TakaProductSerializer
@@ -395,7 +361,6 @@ class ProvidersTakaProductListView(GenericAPIView):
             ),
             status=status.HTTP_200_OK
         )
-
 
 class TakaProductUpdateView(UpdateAPIView):
     serializer_class = TakaProductSerializer

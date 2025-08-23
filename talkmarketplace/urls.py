@@ -1,14 +1,12 @@
 from django.urls import path, include
 from .views import (
     MarketPlaceProductCreateView,
-    UploadMarketPlaceProductImageView,
     ListMarketPlaceProductsView,
     ProvidersMarketPlaceProductListView,
     MarketPlaceProductUpdateView,
     MarketPlaceProductDeleteView,
 
     TakaProductCreateView,
-    UploadTakaProductImageView,
     ListTakaProductsView,
     ProvidersTakaProductListView,
     TakaProductUpdateView,
@@ -18,7 +16,6 @@ from .views import (
 
 marketplace_urlpatterns = [
     path('create-product/', MarketPlaceProductCreateView.as_view(), name='create_product'),
-    path('upload-product-image/<str:product_id>', UploadMarketPlaceProductImageView.as_view(), name='upload_product_image'),
     path('list-products/', ListMarketPlaceProductsView.as_view(), name='list_products'),
     path('providers-products/', ProvidersMarketPlaceProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', MarketPlaceProductUpdateView.as_view(), name='product_detail'),
@@ -27,7 +24,6 @@ marketplace_urlpatterns = [
 
 taka_urlpatterns = [
     path('create-product/', TakaProductCreateView.as_view(), name='create_product'),
-    path('upload-product-image/<str:product_id>', UploadTakaProductImageView.as_view(), name='upload_product_image'),
     path('list-products/', ListTakaProductsView.as_view(), name='list_products'),
     path('providers-products/', ProvidersTakaProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', TakaProductUpdateView.as_view(), name='product_detail'),

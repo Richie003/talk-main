@@ -8,14 +8,17 @@ from utils.models import ModelUtilsMixin
 # from utils.custom_enums import ProductSize, ProductTags, StockId
 from polymorphic.models import PolymorphicModel
 
-def primary_image_upload_path(instance, filename):
-    return f"products/imgs/{instance.service_provider.talk_id}/{slugify(instance.name)}-{filename}"
+def marketplace_image_upload_path(instance, filename):
+    return f"products/marketplace/imgs/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
 
-def secondary_images_upload_path(instance, filename):
-    return f"products/imgs/{instance.product.user.talk_id}/secondary/{slugify(instance.product.name)}-{filename}"
+def taka_image_upload_path(instance, filename):
+    return f"products/taka/imgs/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
 
-def product_video_upload_path(instance, filename):
-    return f"products/vids/{instance.service_provider.talk_id}/{slugify(instance.name)}-{filename}"
+def marketplace_video_upload_path(instance, filename):
+    return f"products/marketplace/vids/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
+
+def taka_video_upload_path(instance, filename):
+    return f"products/taka/vids/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
 
 class Product(ModelUtilsMixin, PolymorphicModel):
     """
@@ -30,7 +33,6 @@ class Product(ModelUtilsMixin, PolymorphicModel):
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
     discount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
     negotiable = models.BooleanField(default=False)
-    primary_image = models.ImageField(upload_to=primary_image_upload_path, null=True, blank=True)
     approved = models.BooleanField(default=False)
 
 
@@ -46,11 +48,10 @@ class MarketPlaceProduct(Product):
     def save(self, *args, **kwargs):
         if eval(self.user.user_role)[0] != 'service providers':
             raise ValueError("Only service providers can create products.")
-        if not self.slug:
-            super().save(*args, **kwargs)
+        if not self.slug and self.id:  # id exists
             self.slug = f"{slugify(self.name)}-{self.id}"
-            kwargs['force_insert'] = False
         super().save(*args, **kwargs)
+
 
     def product_profile(self):
             return {
@@ -62,8 +63,7 @@ class MarketPlaceProduct(Product):
                 "tag": self.tag,
                 "price": str(self.price),
                 "discount": str(self.discount),
-                "primary_image": self.primary_image.url if self.primary_image else None,
-                "extra_images": self.get_images(),
+                "images": self.get_images(),
                 "videos": self.get_videos(),
                 "reviews": self.get_reviews(),
                 "created_by": str(self.user.first_name) + " " + str(self.user.last_name),
@@ -97,14 +97,14 @@ class MarketPlaceProduct(Product):
 
 class MarketPlaceProductImage(ModelUtilsMixin):
     product = models.ForeignKey(MarketPlaceProduct, on_delete=models.CASCADE, related_name='marketplace_images')
-    image = models.ImageField(upload_to=secondary_images_upload_path, null=True, blank=True)
+    image = models.ImageField(upload_to=marketplace_image_upload_path, null=True, blank=True)
 
     def __str__(self):
         return f"Image for {self.product.name}"
 
 class MarketPlaceProductVideo(ModelUtilsMixin):
     product = models.ForeignKey(MarketPlaceProduct, on_delete=models.CASCADE, related_name='marketplace_videos')
-    video_path = models.FileField(upload_to=secondary_images_upload_path, null=True, blank=True)
+    video_path = models.FileField(upload_to=marketplace_video_upload_path, null=True, blank=True)
     video_url = models.URLField(null=True, blank=True)
 
     def __str__(self):
@@ -124,11 +124,10 @@ class TakaProduct(Product):
         return str(self.name)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            super().save(*args, **kwargs)  # Save to generate ID
+        if not self.slug and self.id:  # id exists
             self.slug = f"{slugify(self.name)}-{self.id}"
-            kwargs['force_insert'] = False
         super().save(*args, **kwargs)
+
     
 
     def product_profile(self):
@@ -140,8 +139,7 @@ class TakaProduct(Product):
                 "tag": self.tag,
                 "price": str(self.price),
                 "discount": str(self.discount),
-                "primary_image": self.primary_image.url,
-                "extra_images": self.get_images(),
+                "images": self.get_images(),
                 "videos": self.get_videos(),
                 "reviews": self.get_reviews(),
                 "created_by": str(self.user.first_name) + " " + str(self.user.last_name),
@@ -174,14 +172,14 @@ class TakaProduct(Product):
 
 class TakaProductImage(ModelUtilsMixin):
     product = models.ForeignKey(TakaProduct, on_delete=models.CASCADE, related_name='taka_images')
-    image = models.ImageField(upload_to=secondary_images_upload_path, null=True, blank=True)
+    image = models.ImageField(upload_to=taka_image_upload_path, null=True, blank=True)
 
     def __str__(self):
         return f"Image for {self.product.name}"
 
 class TakaProductVideo(ModelUtilsMixin):
     product = models.ForeignKey(TakaProduct, on_delete=models.CASCADE, related_name='taka_videos')
-    video_path = models.FileField(upload_to=secondary_images_upload_path, null=True, blank=True)
+    video_path = models.FileField(upload_to=taka_video_upload_path, null=True, blank=True)
     video_url = models.URLField(null=True, blank=True)
 
     def __str__(self):
