@@ -12,101 +12,6 @@ from .models import (
 )
 from utils.helpers import FormattedDateTimeField
 
-class MarketPlaceProductSerializer(serializers.ModelSerializer):
-    created = FormattedDateTimeField(read_only=True)
-    updated = FormattedDateTimeField(read_only=True)
-    class Meta:
-        model = MarketPlaceProduct
-        fields = [
-            "id",
-            "name",
-            "slug",
-            "description",
-            "category",
-            "tag",
-            "price",
-            "discount",
-            "negotiable",
-            "primary_image",
-            "user",
-            "approved",
-            "created",
-            "updated",
-        ]
-
-        read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
-        write_only_fields = ["category",]
-
-
-    
-    def create(self, validated_data):
-        if validated_data:
-            validated_data["user"] = self.context.get('request').user
-            product = MarketPlaceProduct.objects.create(**validated_data)
-        return product
-    
-    def update(self, instance, validated_data):
-        instance.name = validated_data.get('name', instance.name)
-        instance.description = validated_data.get('description', instance.description)
-        instance.price = validated_data.get('price', instance.price)
-        instance.category = validated_data.get('category', instance.category)
-        instance.quantity = validated_data.get('quantity', instance.quantity)
-        instance.size = validated_data.get('size', instance.size)
-        instance.colour = validated_data.get('colour', instance.colour)
-        instance.tags = validated_data.get('tags', instance.tags)
-        instance.stock_status = validated_data.get('stock_status', instance.stock_status)
-        if 'primary_image' in validated_data:
-            instance.primary_image = validated_data['primary_image']
-        instance.save()
-        return super().update(instance, validated_data)
-
-class TakaProductSerializer(serializers.ModelSerializer):
-    created = FormattedDateTimeField(read_only=True)
-    updated = FormattedDateTimeField(read_only=True)
-    class Meta:
-        model = TakaProduct
-        fields = [
-            "id",
-            "name",
-            "slug",
-            "description",
-            "category",
-            "tag",
-            "price",
-            "discount",
-            "negotiable",
-            "primary_image",
-            "user",
-            "approved",
-            "created",
-            "updated",
-        ]
-
-        read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
-        write_only_fields = ["category",]
-
-    
-    def create(self, validated_data):
-        if validated_data:
-            validated_data["service_provider"] = self.context.get('request').user
-            product = TakaProduct.objects.create(**validated_data)
-        return product
-    
-    def update(self, instance, validated_data):
-        instance.name = validated_data.get('name', instance.name)
-        instance.description = validated_data.get('description', instance.description)
-        instance.price = validated_data.get('price', instance.price)
-        instance.category = validated_data.get('category', instance.category)
-        instance.quantity = validated_data.get('quantity', instance.quantity)
-        instance.size = validated_data.get('size', instance.size)
-        instance.colour = validated_data.get('colour', instance.colour)
-        instance.tags = validated_data.get('tags', instance.tags)
-        instance.stock_status = validated_data.get('stock_status', instance.stock_status)
-        if 'primary_image' in validated_data:
-            instance.primary_image = validated_data['primary_image']
-        instance.save()
-        return super().update(instance, validated_data)
-
 class MarketPlaceProductImageSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
@@ -127,9 +32,8 @@ class MarketPlaceProductImageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return MarketPlaceProductImage.objects.create(**validated_data)
-
+    
 class TakaProductImageSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(required=True)
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
 
@@ -149,6 +53,100 @@ class TakaProductImageSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return TakaProductImage.objects.create(**validated_data)
+
+class MarketPlaceProductSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+    images = MarketPlaceProductImageSerializer(source="marketplace_images", many=True, read_only=True)
+    upload_images = serializers.ListSerializer(child=serializers.CharField())
+    class Meta:
+        model = MarketPlaceProduct
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "category",
+            "tag",
+            "price",
+            "discount",
+            "negotiable",
+            "images",
+            "upload_images",
+            "user",
+            "approved",
+            "created",
+            "updated",
+        ]
+
+        read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
+        write_only_fields = ["category",]
+
+
+    
+    def create(self, validated_data):
+        images = validated_data.pop("upload_images", [])
+        product = MarketPlaceProduct.objects.create(
+            user=self.context["request"].user, **validated_data
+        )
+        for img in images:
+            MarketPlaceProductImage.objects.create(product=product, image=img)
+        return product
+
+    def update(self, instance, validated_data):
+        images = validated_data.pop("upload_images", [])
+        instance = super().update(instance, validated_data)
+        for img in images:
+            MarketPlaceProductImage.objects.create(product=instance, image=img)
+        return instance
+
+
+class TakaProductSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+    images = TakaProductImageSerializer(source="taka_images", many=True, read_only=True)
+    upload_images = serializers.ListSerializer(child=serializers.CharField())
+    class Meta:
+        model = TakaProduct
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "category",
+            "tag",
+            "price",
+            "discount",
+            "negotiable",
+            "images",
+            "upload_images",
+            "user",
+            "approved",
+            "created",
+            "updated",
+        ]
+
+        read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
+        write_only_fields = ["category",]
+
+
+    
+    def create(self, validated_data):
+        images = validated_data.pop("upload_images", [])
+        product = TakaProduct.objects.create(
+            user=self.context["request"].user, **validated_data
+        )
+        for img in images:
+            TakaProductImage.objects.create(product=product, image=img)
+        return product
+
+    def update(self, instance, validated_data):
+        images = validated_data.pop("upload_images", [])
+        instance = super().update(instance, validated_data)
+        for img in images:
+            TakaProductImage.objects.create(product=instance, image=img)
+        return instance
+
 
 class SavedItemsSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
