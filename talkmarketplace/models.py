@@ -9,16 +9,16 @@ from utils.models import ModelUtilsMixin
 from polymorphic.models import PolymorphicModel
 
 def marketplace_image_upload_path(instance, filename):
-    return f"products/marketplace/imgs/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
+    return f"products/marketplace/imgs/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
 def taka_image_upload_path(instance, filename):
-    return f"products/taka/imgs/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
+    return f"products/taka/imgs/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
 def marketplace_video_upload_path(instance, filename):
-    return f"products/marketplace/vids/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
+    return f"products/marketplace/vids/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
 def taka_video_upload_path(instance, filename):
-    return f"products/taka/vids/{instance.product.user.talk_id}/{slugify(instance.name)}-{filename}"
+    return f"products/taka/vids/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
 class Product(ModelUtilsMixin, PolymorphicModel):
     """
