@@ -22,9 +22,10 @@ from rest_framework.response import Response
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import exceptions, status
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
 from rest_framework.parsers import MultiPartParser, FormParser
 from utils.helpers import custom_response
-from drf_yasg.utils import swagger_auto_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 
 tag_names = {
     "marketplace": "Marketplace",
@@ -38,7 +39,7 @@ class SaveItemView(GenericAPIView):
     """
     serializer_class = SavedItemsSerializer
     permission_classes = [IsAuthenticated]
-    @swagger_auto_schema(tags=[tag_names["inventory"]], operation_id="Save an item for later")
+    @extend_schema(tags=[tag_names["inventory"]], operation_id="Save an item for later")
 
     def post(self, request, *args, **kwargs):
         product_id = request.data.get("product")
@@ -72,20 +73,20 @@ class SaveItemView(GenericAPIView):
 
 class MarketPlaceProductCreateView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
-    queryset = MarketPlaceProduct.objects.all()
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(
+    @extend_schema(
         tags=[tag_names["marketplace"]], 
         operation_id="Create and upload a product"
     )
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(
-            data=request.data,
-            context={"request": request}
-        )
+        data = request.data.copy()
         try:
+            serializer = self.get_serializer(
+                data=data,
+                context={"request": request}
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
@@ -111,6 +112,7 @@ class MarketPlaceProductCreateView(GenericAPIView):
             )
 
 
+
 class ListMarketPlaceProductsView(ListAPIView):
     """Lists all products with pagination and filtering."""
     serializer_class = MarketPlaceProductSerializer
@@ -118,7 +120,7 @@ class ListMarketPlaceProductsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
 
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Get all products")
+    @extend_schema(tags=[tag_names["marketplace"]], operation_id="Get all products")
     def get(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
@@ -155,7 +157,7 @@ class ProvidersMarketPlaceProductListView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
 
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Get products of a service provider")
+    @extend_schema(tags=[tag_names["marketplace"]], operation_id="Get products of a service provider")
     def get(self, request, *args, **kwargs):
         user_id = request.user.id
         if not user_id:
@@ -190,6 +192,30 @@ class ProvidersMarketPlaceProductListView(GenericAPIView):
             status=status.HTTP_200_OK
         )
 
+class MarketPlaceProductDetailView(GenericAPIView):
+    queryset = MarketPlaceProduct.objects.all()
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'slug'
+    http_method_names = ['get']
+
+    @extend_schema(tags=[tag_names["marketplace"]], operation_id="Get a product's details")
+    def get(self, request, *args, **kwargs):
+        slug = kwargs.get('slug')
+        try:
+            product = MarketPlaceProduct.objects.get(slug=slug)
+        except ObjectDoesNotExist:
+            raise exceptions.NotFound("Product not found")
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Product details retrieved successfully",
+                data=product.product_profile()
+            ),
+            status=status.HTTP_200_OK
+        )
+
 class MarketPlaceProductUpdateView(UpdateAPIView):
     serializer_class = MarketPlaceProductSerializer
     queryset = MarketPlaceProduct.objects.all()
@@ -198,7 +224,7 @@ class MarketPlaceProductUpdateView(UpdateAPIView):
     lookup_field = 'slug'
     http_method_names = ['patch']
 
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Update a product")    
+    @extend_schema(tags=[tag_names["marketplace"]], operation_id="Update a product")    
     def patch(self, request, *args, **kwargs):
         slug = kwargs.get('slug')
         try:
@@ -227,7 +253,7 @@ class MarketPlaceProductDeleteView(GenericAPIView):
     lookup_field = 'id'
     http_method_names = ['delete']
 
-    @swagger_auto_schema(tags=[tag_names["marketplace"]], operation_id="Delete a product")
+    @extend_schema(tags=[tag_names["marketplace"]], operation_id="Delete a product")
     def delete(self, request, *args, **kwargs):
         id = kwargs.get('id')
         try:
@@ -248,17 +274,20 @@ class MarketPlaceProductDeleteView(GenericAPIView):
 #### ---- TAKA ---- ####
 class TakaProductCreateView(GenericAPIView):
     serializer_class = TakaProductSerializer
-    model = TakaProduct
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
-    
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Create and upload a product")
+
+    @extend_schema(
+        tags=[tag_names["taka"]], 
+        operation_id="Create and upload a product"
+    )
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(
-            data=request.data,
-            context={"request": request}
-        )
+        data = request.data.copy()
         try:
+            serializer = self.get_serializer(
+                data=data,
+                context={"request": request}
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
@@ -290,7 +319,7 @@ class ListTakaProductsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
 
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Get all products")
+    @extend_schema(tags=[tag_names["taka"]], operation_id="Get all products")
     def get(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
@@ -327,13 +356,13 @@ class ProvidersTakaProductListView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     pagination_class = PageNumberPagination
 
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Get products of a service provider")
+    @extend_schema(tags=[tag_names["taka"]], operation_id="Get products of a service provider")
     def get(self, request, *args, **kwargs):
         user_id = request.user.id
         if not user_id:
             raise exceptions.NotAuthenticated("User not authenticated")
 
-        queryset = TakaProduct.objects.filter(service_provider=user_id)
+        queryset = TakaProduct.objects.filter(user=user_id)
         page = self.paginate_queryset(queryset)
 
         if page is not None:
@@ -362,14 +391,42 @@ class ProvidersTakaProductListView(GenericAPIView):
             status=status.HTTP_200_OK
         )
 
-class TakaProductUpdateView(UpdateAPIView):
+class TakaProductDetailView(GenericAPIView):
     serializer_class = TakaProductSerializer
     queryset = TakaProduct.objects.all()
     permission_classes = [IsAuthenticated]
     lookup_field = 'slug'
+    http_method_names = ['get']
+
+    @extend_schema(tags=[tag_names["taka"]], operation_id="Get a product's details")
+    def get(self, request, *args, **kwargs):
+        slug = kwargs.get('slug')
+        try:
+            product = TakaProduct.objects.get(slug=slug)
+        except ObjectDoesNotExist:
+            raise exceptions.NotFound("Product not found")
+
+        serializer = self.get_serializer(product)
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Product details retrieved successfully",
+                data=serializer.data
+            ),
+            status=status.HTTP_200_OK
+        )
+
+class TakaProductUpdateView(UpdateAPIView):
+    serializer_class = TakaProductSerializer
+    queryset = TakaProduct.objects.all()
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    lookup_field = 'slug'
     http_method_names = ['patch']
 
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Update a product")    
+    @extend_schema(tags=[tag_names["taka"]], operation_id="Update a product")    
     def patch(self, request, *args, **kwargs):
         slug = kwargs.get('slug')
         try:
@@ -398,7 +455,7 @@ class TakaProductDeleteView(GenericAPIView):
     lookup_field = 'id'
     http_method_names = ['delete']
 
-    @swagger_auto_schema(tags=[tag_names["taka"]], operation_id="Delete a product")
+    @extend_schema(tags=[tag_names["taka"]], operation_id="Delete a product")
     def delete(self, request, *args, **kwargs):
         id = kwargs.get('id')
         try:
@@ -411,7 +468,8 @@ class TakaProductDeleteView(GenericAPIView):
             custom_response(
                 status_mthd=status.HTTP_204_NO_CONTENT,
                 status="success",
-                mssg="Product deleted successfully"
+                mssg="Product deleted successfully",
+                data = {}
             ),
             status=status.HTTP_204_NO_CONTENT
         )
