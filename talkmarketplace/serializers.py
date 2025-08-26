@@ -12,6 +12,7 @@ from .models import (
 )
 from utils.helpers import FormattedDateTimeField
 
+
 class MarketPlaceProductImageSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
@@ -58,7 +59,8 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
     images = MarketPlaceProductImageSerializer(source="marketplace_images", many=True, read_only=True)
-    upload_images = serializers.ListSerializer(child=serializers.CharField())
+    upload_images = serializers.ListField(child=serializers.FileField(allow_empty_file=True), write_only=True)
+
     class Meta:
         model = MarketPlaceProduct
         fields = [
@@ -70,27 +72,27 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
             "tag",
             "price",
             "discount",
-            "negotiable",
             "images",
-            "upload_images",
+            "negotiable",
+            "upload_images",   # request only
             "user",
             "approved",
             "created",
             "updated",
         ]
-
         read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
-        write_only_fields = ["category",]
+        extra_kwargs = {
+            'upload_images': {'required': False}
+        }
 
-
-    
     def create(self, validated_data):
+        print(validated_data)
         images = validated_data.pop("upload_images", [])
         product = MarketPlaceProduct.objects.create(
             user=self.context["request"].user, **validated_data
         )
         for img in images:
-            MarketPlaceProductImage.objects.create(product=product, image=img)
+            MarketPlaceProductImage.objects.create(product_id=product.id, image=img)
         return product
 
     def update(self, instance, validated_data):
@@ -105,7 +107,7 @@ class TakaProductSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
     images = TakaProductImageSerializer(source="taka_images", many=True, read_only=True)
-    upload_images = serializers.ListSerializer(child=serializers.CharField())
+    upload_images = serializers.ListField(child=serializers.FileField(allow_empty_file=True), write_only=True)
     class Meta:
         model = TakaProduct
         fields = [
@@ -117,9 +119,9 @@ class TakaProductSerializer(serializers.ModelSerializer):
             "tag",
             "price",
             "discount",
-            "negotiable",
             "images",
-            "upload_images",
+            "negotiable",
+            "upload_images",   # request only
             "user",
             "approved",
             "created",
@@ -127,10 +129,10 @@ class TakaProductSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = ["id", "slug", "created", "updated", "user", "approved"]
-        write_only_fields = ["category",]
+        extra_kwargs = {
+            'upload_images': {'required': False}
+        }
 
-
-    
     def create(self, validated_data):
         images = validated_data.pop("upload_images", [])
         product = TakaProduct.objects.create(

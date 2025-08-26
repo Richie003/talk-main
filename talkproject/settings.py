@@ -17,6 +17,7 @@ from pathlib import Path
 import environ
 
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -46,7 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'drf_yasg',
+    # 'drf_yasg',
+    'drf_spectacular',
     'corsheaders',
     'talkapp',
     'talkcontent',
@@ -62,7 +64,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware'
 ]
 
 ROOT_URLCONF = 'talkproject.urls'
@@ -131,10 +132,10 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
 
 # Default primary key field type
@@ -145,29 +146,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'talkapp.CustomUser'
 
-# CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS')
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
 
 REST_FRAMEWORK = {
     'NON_FIELD_ERRORS_KEY': 'error',
     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
-
+    
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-
+    
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
     ],
-
+    
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 1,
+    'PAGE_SIZE': 50,
 }
 
 SIMPLE_JWT = {
@@ -179,35 +183,51 @@ SIMPLE_JWT = {
     'TOKEN_BLACKLIST': 'rest_framework_simplejwt.token_blacklist.models.BlacklistedToken'
 }
 
-SWAGGER_SETTINGS = {
-    'USE_SESSION_AUTH': False,
-
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Talk's API",
+    "DESCRIPTION": "The backend API for Talk",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "SCHEMA_PATH_PREFIX": "/api/",
+    "SWAGGER_UI_SETTINGS": {
+        "docExpansion": "none",
+        "filter": True,
+        "tagsSorter": "alpha",
+        "displayOperationId": True,
+        "displayRequestDuration": True,
+        "persistAuthorization": True,
     },
-    'DEFAULT_FIELD_INSPECTORS': [
-        'drf_yasg.inspectors.CamelCaseJSONFilter',
-        'drf_yasg.inspectors.InlineSerializerInspector',
-        'drf_yasg.inspectors.RelatedFieldInspector',
-        'drf_yasg.inspectors.ChoiceFieldInspector',
-        'drf_yasg.inspectors.FileFieldInspector',
-        'drf_yasg.inspectors.DictFieldInspector',
-        'drf_yasg.inspectors.SimpleFieldInspector',
-        'drf_yasg.inspectors.StringDefaultFieldInspector',
+    "SECURITY": [
+        {
+            "Bearer Auth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "Authorization",
+                "description": "Enter your Bearer token in the format: Bearer <token>"
+            }
+        },
     ],
-
+    "COMPONENT_SPLIT_REQUEST": True,
+    "AUTHENTICATION_WHITELIST": ['rest_framework_simplejwt.authentication.JWTAuthentication'],
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "Bearer Auth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "Authorization",
+                "description": "Enter your Bearer token in the format: Bearer <token>"
+            }
+        }
+    }
 }
-CLIENT_SITE_URL = env("CLIENT_SITE_URL")
-CORS_ALLOW_ALL_ORIGINS = bool(env("CORS_ALLOW_ALL_ORIGINS"))
-CORS_ALLOW_CREDENTIALS = bool(env("CORS_ALLOW_CREDENTIALS"))
+CLIENT_SITE_URL=env("CLIENT_SITE_URL")
+CORS_ALLOW_ALL_ORIGINS=bool(env("CORS_ALLOW_ALL_ORIGINS"))
+CORS_ALLOW_CREDENTIALS=bool(env("CORS_ALLOW_CREDENTIALS"))
 #  Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env("EMAIL_HOST")
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_USER= env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 EMAIL_PORT = env.int("EMAIL_PORT")
 EMAIL_USE_TLS = False
