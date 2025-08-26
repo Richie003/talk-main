@@ -1,20 +1,24 @@
 from django.urls import path
 from .views import (
-    CreateUserViewSet,
-    SetNewPassword,
-    ForgotPassword,
-    LoginView,
-    VerifyOTP,
+    CreateUserViewSet, 
+    SetNewPassword, 
+    ForgotPassword, 
+    LoginView, 
+    VerifyOTP, 
     ResendOTP,
+    UserProfileViewSet,
     UpdateUserProfileViewSet,
     UpdateServiceProviderProfileViewSet,
     UpdateIndividualProfileViewSet,
     CreateIndividualViewSet,
-    CreateServiceProvidersViewSet
+    CreateServiceProvidersViewSet,
+    RetrieveServiceProviderProfileViewSet,
+    CustomTokenRefreshView
 )
 
 
 urlpatterns = [
+    path("refresh-token", CustomTokenRefreshView.as_view(), name="token_refresh"),
     path("login", LoginView.as_view(), name="login"),
     path('student-sign-up', CreateUserViewSet.as_view(), name='Student_sign_up'),
     path("forgot-password", ForgotPassword.as_view(), name="forgot_password"),
@@ -22,12 +26,11 @@ urlpatterns = [
     path("verify-user-otp", VerifyOTP.as_view()),
     path("resend-otp", ResendOTP.as_view()),
     # user profile
+    path("get-user-profile", UserProfileViewSet.as_view(), name="get_user_profile"),
     path("update-bio", UpdateUserProfileViewSet.as_view(), name="update_profile"),
     path("create-individual-profile", CreateIndividualViewSet.as_view()),
-    path("create-service-provider-profile",
-         CreateServiceProvidersViewSet.as_view()),
-    path("update-service-provider-profile", UpdateServiceProviderProfileViewSet.as_view(),
-         name="update_service_provider_profile"),
-    path("update-individual-profile", UpdateIndividualProfileViewSet.as_view(),
-         name="update_individual_profile")
+    path("create-service-provider-profile", CreateServiceProvidersViewSet.as_view()),
+    path("update-service-provider-profile", UpdateServiceProviderProfileViewSet.as_view(), name="update_service_provider_profile"),
+    path("update-individual-profile", UpdateIndividualProfileViewSet.as_view(), name="update_individual_profile"),
+    path("get-user-profile/<str:id>", RetrieveServiceProviderProfileViewSet.as_view(), name="retrieve_service_provider_profile"),
 ]
