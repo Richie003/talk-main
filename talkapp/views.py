@@ -248,7 +248,7 @@ class ResendOTP(GenericAPIView):
 
         try:
             user = User.objects.get(email=email)
-            otp_code = OneTimePassword.objects.get(user_id=user_data.id).otp
+            otp_code = OneTimePassword.objects.get(user_id=user.id).otp
 
             email_data = get_template("emails/email_verification.html").render({
                 "heading": "",
