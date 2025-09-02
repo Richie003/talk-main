@@ -14,7 +14,12 @@ from .views import (
     TakaProductUpdateView,
     TakaProductDeleteView,
     SaveItemView,
-    DeleteSavedItemView,
+    ServiceCreateView,
+    ListServicesView,
+    ProvidersServicesListView,
+    ServiceDetailView,
+    ServiceUpdateView,
+    ServiceDeleteView
 )
 
 marketplace_urlpatterns = [
@@ -35,9 +40,18 @@ taka_urlpatterns = [
     path('delete-product/<str:id>/', TakaProductDeleteView.as_view(), name='delete_product'),
 ]
 
+service_urlpatterns = [
+    path('create-service/', ServiceCreateView.as_view(), name='create_service'),
+    path('list-services/', ListServicesView.as_view(), name='list_services'),
+    path('service-detail/<slug:slug>/', ServiceDetailView.as_view(), name='service_detail'),
+    path('providers-services/', ProvidersServicesListView.as_view(), name='providers_services'),
+    path('update-service/<slug:slug>/', ServiceUpdateView.as_view(), name='service_detail'),
+    path('delete-service/<str:id>/', ServiceDeleteView.as_view(), name='delete_service'),
+]
+
 urlpatterns = [
     path("marketplace/", include(marketplace_urlpatterns)), 
     path("taka/", include(taka_urlpatterns)),
-    path("save-items/", SaveItemView.as_view()),
-    path('saved-items/<int:product_id>/delete/', DeleteSavedItemView.as_view(), name='delete_saved_item'),
+    path("services/", include(service_urlpatterns)),
+    path("save-items/", SaveItemView.as_view())
 ]
