@@ -20,6 +20,12 @@ def marketplace_video_upload_path(instance, filename):
 def taka_video_upload_path(instance, filename):
     return f"products/taka/vids/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
+def services_image_upload_path(instance, filename):
+    return f"services/imgs/{instance.service.user.talk_id}/{slugify(instance.service.title)}-{filename}"
+
+def services_video_upload_path(instance, filename):
+    return f"services/vids/{instance.service.user.talk_id}/{slugify(instance.service.title)}-{filename}"
+
 class Product(ModelUtilsMixin, PolymorphicModel):
     """
     Base model for products in the marketplace.
@@ -36,12 +42,13 @@ class Product(ModelUtilsMixin, PolymorphicModel):
     approved = models.BooleanField(default=False)
 
 
-    # class Meta:
-    #     abstract = True
-
 
 class MarketPlaceProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='marketplace_products')
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
     def __str__(self):
         return str(self.name)
 
@@ -120,6 +127,10 @@ class MarketPlaceProductReview(ModelUtilsMixin):
 
 class TakaProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='taka_products')
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
     def __str__(self):
         return str(self.name)
 
@@ -191,9 +202,93 @@ class TakaReview(ModelUtilsMixin):
     rating = models.IntegerField(validators=[MinValueValidator(1)])
     comment = models.TextField(null=True, blank=True)
 
+    class Meta:
+        ordering = ["-created", "-updated"]
+
+class Service(ModelUtilsMixin):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='services')
+    slug = models.SlugField(unique=True, null=False, blank=True)
+    title = models.CharField(max_length=255, null=False)
+    description = models.TextField(null=False)
+    flat_rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
+    negotiable = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
+    def __str__(self):
+        return str(self.title)
+    
+    def save(self, *args, **kwargs):
+        if not self.slug and self.id:  # id exists
+            self.slug = f"{slugify(self.title)}-{self.id}"
+        super().save(*args, **kwargs)
+
+    def service_profile(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "slug": self.slug,
+            "description": self.description,
+            "flat_rate": str(self.flat_rate),
+            "negotiable": str(self.negotiable),
+            "images": self.get_images(),
+            "videos": self.get_videos(),
+            "reviews": self.get_reviews(),
+            "created_by": str(self.user.first_name) + " " + str(self.user.last_name),
+            "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),
+        }    
+
+    def get_images(self):
+        return [image.image.url for image in self.service_images.all() if image.image]
+
+    def get_videos(self):
+        return [video.video_path.url for video in self.service_videos.all() if video.video_path]
+
+    def get_reviews(self):
+        return [review.comment for review in self.service_reviews.all() if review.comment]
+
+    def get_average_rating(self):
+        if self.service_reviews.exists():
+            total_rating = sum(review.rating for review in self.service_reviews.all())
+            return total_rating / self.get_review_count()
+        return 0
+
+    def get_review_count(self):
+        return self.service_reviews.count()
+
+class ServicesImage(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_images')
+    image = models.ImageField(upload_to=services_image_upload_path, null=True, blank=True)
+
+    def __str__(self):
+        return f"Image for {self.service.title}"
+
+
+class ServicesVideo(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_videos')
+    video_path = models.FileField(upload_to=services_video_upload_path, null=True, blank=True)
+    video_url = models.URLField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Video for {self.service.title}"
+
+class ServiceReview(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    rating = models.IntegerField(validators=[MinValueValidator(1)])
+    comment = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
 class SavedItem(ModelUtilsMixin):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     product = models.ManyToManyField(Product, related_name='saved_items')
+
+    class Meta:
+        ordering = ["-created", "-updated"]
 
     def __str__(self):
         return f"{self.user.username}'s saved items"
