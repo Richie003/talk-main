@@ -8,6 +8,10 @@ from .models import (
     TakaProductImage,
     TakaProductVideo,
     TakaReview,
+    Service,
+    ServicesImage,
+    ServicesVideo,
+    ServiceReview,
     SavedItem
 )
 from utils.helpers import FormattedDateTimeField
@@ -86,7 +90,6 @@ class MarketPlaceProductSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        print(validated_data)
         images = validated_data.pop("upload_images", [])
         product = MarketPlaceProduct.objects.create(
             user=self.context["request"].user, **validated_data
@@ -149,7 +152,6 @@ class TakaProductSerializer(serializers.ModelSerializer):
             TakaProductImage.objects.create(product=instance, image=img)
         return instance
 
-
 class SavedItemsSerializer(serializers.ModelSerializer):
     created = FormattedDateTimeField(read_only=True)
     updated = FormattedDateTimeField(read_only=True)
@@ -164,3 +166,58 @@ class SavedItemsSerializer(serializers.ModelSerializer):
             "updated"
         ]
         read_only_fields = ["id", "user", "created", "updated"]
+
+
+class ServiceImageSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+
+    class Meta:
+        model = ServicesImage
+        fields = [
+            "id",
+            "service",
+            "image",
+            "created",
+            "updated"
+        ]
+        read_only_fields = ["id", "created", "updated", "service"]
+        extra_kwargs = {
+            'image': {'required': True}
+        }
+
+    def create(self, validated_data):
+        return ServicesImage.objects.create(**validated_data)
+
+class ServiceSerializer(serializers.ModelSerializer):
+    upload_images = serializers.ListField(child=serializers.FileField(allow_empty_file=True), write_only=True, required=False)
+    images = ServiceImageSerializer(source="service_images", many=True, read_only=True)
+    class Meta:
+        model = Service
+        fields = [
+            "id",
+            "user",
+            "title",
+            "description",
+            "images",
+            "upload_images",
+            "flat_rate",
+            "negotiable"
+        ]
+        read_only_fields = ["id", "user"]
+
+    def create(self, validated_data):
+        images = validated_data.pop("upload_images", [])
+        service = Service.objects.create(
+            user=self.context["request"].user, **validated_data
+        )
+        for img in images:
+            ServicesImage.objects.create(service_id=service.id, image=img)
+        return service
+
+    def update(self, instance, validated_data):
+        images = validated_data.pop("upload_images", [])
+        instance = super().update(instance, validated_data)
+        for img in images:
+            ServicesImage.objects.create(service=instance, image=img)
+        return instance
