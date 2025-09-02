@@ -72,6 +72,41 @@ class SaveItemView(GenericAPIView):
                 data=None
             ), status=status.HTTP_404_NOT_FOUND)
 
+class DeleteSavedItemView(GenericAPIView):
+    """
+        Deletes a saved product for the authenticated user
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names["inventory"]], operation_id="Delete a saved item")
+    def delete(self, request, *args, **kwargs):
+        product_id = kwargs.get('product_id')
+        user = request.user
+
+        try:
+            product = get_object_or_404(Product, id=product_id)
+            saved_instance = SavedItem.objects.get(user=user)
+
+            if saved_instance.is_item_saved(product):
+                saved_instance.remove_item(product)
+                return Response(custom_response(
+                    status_mthd=status.HTTP_204_NO_CONTENT,
+                    status="success",
+                    mssg="Item removed from saved list"
+                ), status=status.HTTP_204_NO_CONTENT)
+
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="Item was not in saved list"
+            ), status=status.HTTP_404_NOT_FOUND)
+
+        except SavedItem.DoesNotExist:
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="No saved items for user"
+            ), status=status.HTTP_404_NOT_FOUND)
 
 class MarketPlaceProductCreateView(GenericAPIView):
     serializer_class = MarketPlaceProductSerializer
