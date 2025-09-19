@@ -14,6 +14,7 @@ from .views import (
     TakaProductUpdateView,
     TakaProductDeleteView,
     SaveItemView,
+    GetSavedItemsView,
     DeleteSavedItemView,
     ServiceCreateView,
     ListServicesView,
@@ -55,5 +56,6 @@ urlpatterns = [
     path("taka/", include(taka_urlpatterns)),
     path("services/", include(service_urlpatterns)),
     path("save-items/", SaveItemView.as_view()),
+    path("saved-items/", GetSavedItemsView.as_view(), name='get_saved_items'),
     path('saved-items/<int:product_id>/delete/', DeleteSavedItemView.as_view(), name='delete_saved_item'),
 ]
