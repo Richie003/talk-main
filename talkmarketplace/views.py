@@ -72,6 +72,37 @@ class SaveItemView(GenericAPIView):
                 data=None
             ), status=status.HTTP_404_NOT_FOUND)
 
+class GetSavedItemsView(GenericAPIView):
+    """
+        Retrieves all saved items for the authenticated user
+    """
+    serializer_class = SavedItemsSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names["inventory"]], operation_id="Get all saved items")
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        try:
+            saved_instance = SavedItem.objects.get(user=user)
+            print(f"Saved instance: {saved_instance}")  # Debugging line
+            saved_items = saved_instance.get_user_saved_items()
+            print(f"Retrieved saved items: {saved_items}")  # Debugging line
+            serializer = self.get_serializer(saved_items, many=True)
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Saved items retrieved successfully",
+                data=serializer.data
+            ), status=status.HTTP_200_OK)
+        except SavedItem.DoesNotExist:
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="No saved items for user",
+                data=None
+            ), status=status.HTTP_404_NOT_FOUND)
+
+
 class DeleteSavedItemView(GenericAPIView):
     """
         Deletes a saved product for the authenticated user
