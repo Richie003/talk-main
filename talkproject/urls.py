@@ -9,5 +9,5 @@ urlpatterns = [
     path('', SpectacularSwaggerView.as_view(), name='swagger-ui'),
     path('api/v1/auth/', include('talkapp.urls')),
     path('api/v1/products/', include('talkmarketplace.urls')),
-    path('api/v1/events/', include('talkcontent.urls')),
+    path('api/v1/', include('talkcontent.urls')),
 ]
