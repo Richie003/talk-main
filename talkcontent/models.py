@@ -46,32 +46,33 @@ class PostContent(ModelUtilsMixin, CommonFields):
         return str(self.title)
     
     def post_profile(self):
+        likes = self.get_likes()
         return {
             "title": self.title,
             "slug": self.slug,
             "summary": self.summary,
             "content": self.content,
             "tags": self.tags,
-            "liked_by": self.liked_by(),
-            "like_count": self.like_count(),
+            "liked_by": likes,
+            "like_count": len(likes),
             "images": self.get_images(),
             "videos": self.get_videos(),
-            "created_by": str(self.user.first_name) + " " + str(self.user.last_name),
+            "created_by": f"{self.user.first_name} {self.user.last_name}",
             "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),
             "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),
         }
-    
+
     def save(self, *args, **kwargs):
-        if not self.slug and self.id:
+        # Save first to get ID if it doesn't exist
+        if not self.id:
+            super().save(*args, **kwargs)
+        if not self.slug:
             self.slug = f"{slugify(self.title)}-{self.id}"
         super().save(*args, **kwargs)
-    
-    def liked_by(self):
-        user = [user.email for user in self.post_likes.all()]
-        return user
-    
-    def like_count(self):
-        return self.post_likes.count()
+
+    def get_likes(self):
+        likes_obj = self.post_likes
+        return likes_obj.get_likes() if likes_obj else []
 
     def get_images(self):
         return [image.image.url for image in self.post_images.all() if image.image]
@@ -79,16 +80,37 @@ class PostContent(ModelUtilsMixin, CommonFields):
     def get_videos(self):
         return [video.video_path.url for video in self.post_videos.all() if video.video_path]
 
-    # def get_reviews(self):
-    #     return [review.comment for review in self.marketplace_reviews.all() if review.comment]
-    
+
 class PostLikes(ModelUtilsMixin):
-    post = models.ForeignKey(PostContent, on_delete=models.CASCADE, related_name="post_likes")
+    post = models.OneToOneField(PostContent, on_delete=models.CASCADE, related_name="post_likes")
     likes = models.ManyToManyField(user, blank=True, related_name="liked_posts")
 
     def __str__(self):
         return f"Likes for {self.post.title}"
-    
+
+    def add_like(self, user_obj):
+        self.likes.add(user_obj)
+
+    def remove_like(self, user_obj):
+        self.likes.remove(user_obj)
+
+    def get_likes(self):
+        return [
+            {
+                "id": u.id,
+                "full_name": f"{u.first_name} {u.last_name}".strip()
+            }
+            for u in self.likes.all()
+        ]
+
+class PostComments(ModelUtilsMixin):
+    post = models.ForeignKey(PostContent, on_delete=models.CASCADE, related_name="post_comments")
+    commented_by = models.ForeignKey(user, on_delete=models.CASCADE, related_name="comments_made")
+    comment = models.TextField()
+    parent_comment = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name="replies")
+
+    def __str__(self):
+        return f"Comment by {self.commented_by.talk_id} on {self.post.title}"
 
 class PostImages(ModelUtilsMixin):
     post = models.ForeignKey(PostContent, on_delete=models.CASCADE, related_name="post_images")
@@ -103,6 +125,14 @@ class PostVideos(ModelUtilsMixin):
 
     def __str__(self):
         return str(self.video)
+
+class SharePost(ModelUtilsMixin):
+    post = models.ForeignKey(PostContent, on_delete=models.CASCADE, related_name="shared_posts")
+    shared_by = models.ForeignKey(user, on_delete=models.CASCADE, related_name="posts_shared")
+    shared_with = models.ManyToManyField(user, related_name="posts_received")
+
+    def __str__(self):
+        return f"{self.post.title} shared by {self.shared_by.talk_id}"
 
 class Event(ModelUtilsMixin, CommonFields):
     event_name = models.CharField(max_length=255)

@@ -4,7 +4,8 @@ from .views import (
     EventUpdateAPIView, EventDeleteAPIView,
     CreatePostContentView, RetrievePostContentView,
     RetrieveDetailedPostContent, DeletePostContentView,
-    UpdatePostContentView
+    UpdatePostContentView, LikePostContentView,
+    CommentPostContentView, RetrievePostCommentsView
 )
 
 # Events
@@ -22,7 +23,11 @@ post_urlpatterns = [
     path('update/<str:pk>/', UpdatePostContentView.as_view()),
     path('delete/<str:pk>/', DeletePostContentView.as_view()),
     path('retrieve/', RetrievePostContentView.as_view()),
-    path('retrieve/<str:pk>/', RetrieveDetailedPostContent.as_view()),
+    path('retrieve/<str:post_id>/', RetrieveDetailedPostContent.as_view()),
+    path('like/', LikePostContentView.as_view()),
+    path('comment/', CommentPostContentView.as_view()),
+    path('get-comments/<str:post_id>/', RetrievePostCommentsView.as_view()),
+    # path('share/', SharePostContentView.as_view()),
 ]
 urlpatterns = [
     path("events/", include(events_urlpatterns)),

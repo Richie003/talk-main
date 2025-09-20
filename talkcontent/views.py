@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
 from utils.helpers import custom_response
-from .models import Event, PostContent
-from .serializers import EventSerializer, PostContentSerializer, PostLikesSerializer
+from .models import Event, PostContent, PostLikes
+from .serializers import EventSerializer, PostContentSerializer, PostCommentsSerializer, SharePostSerializer
 
 tag_names = {
     "event": "Event",
@@ -172,4 +172,143 @@ class DeletePostContentView(generics.DestroyAPIView):
         return Response(
             {"message": "Post deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
+        )
+
+# =========================
+# POST INTERACTIONS VIEWS
+# =========================
+class LikePostContentView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Like a Post")
+    def post(self, request, *args, **kwargs):
+        post_id = request.data.get("post_id")
+        user = request.user
+
+        if not post_id:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="post_id is required",
+                    data=None
+                )
+            )
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        post_likes, created = PostLikes.objects.get_or_create(post=post)
+        if user in post_likes.likes.all():
+            # If user already liked → unlike
+            post_likes.likes.remove(user)
+            action = "unliked"
+        else:
+            # If user hasn't liked yet → like
+            post_likes.likes.add(user)
+            action = "liked"
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg=f"Post {action} successfully",
+                data={
+                    "post_id": post.id,
+                    "likes_count": post_likes.likes.count(),
+                    "liked_by": [u.id for u in post_likes.likes.all()]
+                }
+            )
+        )
+
+class CommentPostContentView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Comment on a Post")
+    def post(self, request, *args, **kwargs):
+        post_id = request.data.get("post_id")
+        user = request.user
+
+        if not post_id:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="post_id is required",
+                    data=None
+                )
+            )
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(commented_by=user, post=post)
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_201_CREATED,
+                    status="success",
+                    mssg="Comment added successfully",
+                    data=serializer.data
+                )
+            )
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg="Failed to add comment",
+                data=serializer.errors
+            )
+        )
+
+class RetrievePostCommentsView(generics.RetrieveAPIView):
+    serializer_class = PostCommentsSerializer
+    permission_classes=[IsAuthenticated]
+    lookup_field = "post_id"
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Retrieve Comments for a Post")
+    def get(self, request, *args, **kwargs):
+        post_id = self.kwargs.get(self.lookup_field)
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        comments = post.post_comments.all()
+        serializer = self.get_serializer(comments, many=True)
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Comments retrieved successfully",
+                data=serializer.data
+            )
         )
