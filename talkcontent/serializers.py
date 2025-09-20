@@ -1,6 +1,6 @@
 # serializers.py
 
-from .models import News, NewsImage, Event, PostContent, PostImages, PostVideos, PostLikes
+from .models import News, NewsImage, Event, PostContent, PostImages, PostVideos, PostLikes, PostComments, SharePost
 from rest_framework import serializers
 from utils.helpers import FormattedDateTimeField
 
@@ -111,3 +111,27 @@ class PostLikesSerializer(serializers.ModelSerializer):
             "post",
             "likes"
         ]
+        read_only_fields = ["likes",]
+
+
+class PostCommentsSerializer(serializers.ModelSerializer):
+    parent_comment = serializers.PrimaryKeyRelatedField(queryset=PostComments.objects.all(), required=False, allow_null=True)
+    class Meta:
+        model = PostComments
+        fields = [
+            "post",
+            "commented_by",
+            "comment",
+            "parent_comment"
+        ]
+        read_only_fields = ["commented_by",]
+
+class SharePostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SharePost
+        fields = [
+            "post",
+            "shared_by",
+            "shared_with"
+        ]
+        read_only_fields = ["shared_by", "shared_with"]
