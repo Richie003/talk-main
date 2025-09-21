@@ -5,7 +5,8 @@ from .views import (
     CreatePostContentView, RetrievePostContentView,
     RetrieveDetailedPostContent, DeletePostContentView,
     UpdatePostContentView, LikePostContentView,
-    CommentPostContentView, RetrievePostCommentsView
+    CommentPostContentView, RetrievePostCommentsView, DeleteCommentView,
+    UpdateCommentView, RepostContentView
 )
 
 # Events
@@ -23,13 +24,19 @@ post_urlpatterns = [
     path('update/<str:pk>/', UpdatePostContentView.as_view()),
     path('delete/<str:pk>/', DeletePostContentView.as_view()),
     path('retrieve/', RetrievePostContentView.as_view()),
-    path('retrieve/<str:post_id>/', RetrieveDetailedPostContent.as_view()),
+    path('retrieve/<str:pk>/', RetrieveDetailedPostContent.as_view()),
     path('like/', LikePostContentView.as_view()),
+    path('repost/', RepostContentView.as_view())
+    # path('share/', SharePostContentView.as_view()),
+]
+post_comments_urlpatterns = [
     path('comment/', CommentPostContentView.as_view()),
     path('get-comments/<str:post_id>/', RetrievePostCommentsView.as_view()),
-    # path('share/', SharePostContentView.as_view()),
+    path('update-comment/<str:comment_id>/', UpdateCommentView.as_view()),
+    path('delete-comment/<str:comment_id>/', DeleteCommentView.as_view()),
 ]
 urlpatterns = [
     path("events/", include(events_urlpatterns)),
-    path("post/", include(post_urlpatterns))
+    path("post/", include(post_urlpatterns)),
+    path("post/comments/", include(post_comments_urlpatterns)),
 ]
