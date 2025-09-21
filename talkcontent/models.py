@@ -4,7 +4,8 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
-from .schemas import CollegeCourses
+from polymorphic.models import PolymorphicModel
+from polymorphic.managers import PolymorphicManager
 
 user = settings.AUTH_USER_MODEL
 
@@ -31,7 +32,8 @@ class CommonFields(models.Model):
     class Meta:
         abstract = True
 
-class PostContent(ModelUtilsMixin, CommonFields):
+class PostContent(PolymorphicModel, ModelUtilsMixin, CommonFields):
+    objects = PolymorphicManager()
     title = models.CharField(max_length=500)
     slug = models.SlugField(unique=True, null=False, blank=True)
     summary = models.TextField(null=True, blank=True)
@@ -46,20 +48,23 @@ class PostContent(ModelUtilsMixin, CommonFields):
         return str(self.title)
     
     def post_profile(self):
-        likes = self.get_likes()
+        likes = self.get_likes() if hasattr(self, 'post_likes') else []
         return {
+            "id": self.id,
             "title": self.title,
             "slug": self.slug,
             "summary": self.summary,
             "content": self.content,
             "tags": self.tags,
             "liked_by": likes,
+            "comment_count": self.comments_count(),
             "like_count": len(likes),
-            "images": self.get_images(),
-            "videos": self.get_videos(),
+            "images": self.get_images() if self.post_images.exists() else None,
+            "videos": self.get_videos() if hasattr(self, 'post_videos') and self.post_videos.exists() else None,
             "created_by": f"{self.user.first_name} {self.user.last_name}",
             "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),
             "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),
+            # "is_repost": False
         }
 
     def save(self, *args, **kwargs):
@@ -70,15 +75,63 @@ class PostContent(ModelUtilsMixin, CommonFields):
             self.slug = f"{slugify(self.title)}-{self.id}"
         super().save(*args, **kwargs)
 
+    def comments_count(self):
+        comments_manager = getattr(self, 'post_comments', None)
+        return comments_manager.count() if comments_manager else 0
+
     def get_likes(self):
-        likes_obj = self.post_likes
-        return likes_obj.get_likes() if likes_obj else []
+        likes = self.post_likes.get_likes() if hasattr(self, 'post_likes') else []
+        return likes if likes else []
 
     def get_images(self):
         return [image.image.url for image in self.post_images.all() if image.image]
-
+    
     def get_videos(self):
-        return [video.video_path.url for video in self.post_videos.all() if video.video_path]
+        return [video.video.url for video in self.post_videos.all() if video.video]
+
+class RePostContent(PostContent):
+    original_post = models.ForeignKey(
+        PostContent,
+        on_delete=models.CASCADE,
+        related_name="reposts",
+        null=True,
+        blank=True,
+        limit_choices_to={"repostcontent__isnull": True}
+    )
+    additional_content = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            super().save(*args, **kwargs)
+
+        # Generate slug if missing
+        if not self.slug:
+            self.slug = f"{slugify(self.title or 'repost')}-{self.id}"
+        
+        super().save(*args, **kwargs)
+
+    def post_profile(self):
+            """
+            Returns the feed-friendly representation of the repost.
+            """
+            if not self.original_post:
+                return {
+                    "id": self.id,
+                    "is_repost": True,
+                    "reposted_by": f"{self.user.first_name} {self.user.last_name}",
+                    "repost_note": self.additional_content,
+                    "repost_date": self.created.strftime("%Y-%m-%d %H:%M:%S"),
+                    "original_post": None,
+                }
+
+            return {
+                "id": self.id,
+                "is_repost": True,
+                "reposted_by": f"{self.user.first_name} {self.user.last_name}",
+                "repost_note": self.additional_content,
+                "repost_date": self.created.strftime("%Y-%m-%d %H:%M:%S"),
+                "original_post": self.original_post.post_profile(),
+            }
 
 
 class PostLikes(ModelUtilsMixin):
@@ -155,7 +208,6 @@ class News(ModelUtilsMixin, CommonFields):
         if not self.slug:
             self.slug = f"{slugify(self.title)}-{self.id}"
         super().save(*args, **kwargs)
-
 
 class NewsImage(ModelUtilsMixin):
     news = models.ForeignKey(News, on_delete=models.CASCADE, related_name="images")
