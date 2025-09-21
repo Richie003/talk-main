@@ -1,6 +1,6 @@
 # serializers.py
 
-from .models import News, NewsImage, Event, PostContent, PostImages, PostVideos, PostLikes, PostComments, SharePost
+from .models import News, NewsImage, Event, PostContent, PostImages, PostVideos, PostLikes, PostComments, SharePost, RePostContent
 from rest_framework import serializers
 from utils.helpers import FormattedDateTimeField
 
@@ -119,12 +119,26 @@ class PostCommentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostComments
         fields = [
+            "id",
             "post",
             "commented_by",
             "comment",
             "parent_comment"
         ]
-        read_only_fields = ["commented_by",]
+        read_only_fields = ["id", "commented_by",]
+
+class RePostContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=RePostContent
+        fields=[
+            "user",
+            "original_post",
+            "additional_content"
+        ]
+        read_only_fields = ["user",]
+
+    def create(self, validated_data):
+        return RePostContent.objects.create(**validated_data)
 
 class SharePostSerializer(serializers.ModelSerializer):
     class Meta:
