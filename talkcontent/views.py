@@ -4,12 +4,21 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
 from utils.helpers import custom_response
-from .models import Event, PostContent, PostLikes
-from .serializers import EventSerializer, PostContentSerializer, PostCommentsSerializer, SharePostSerializer
+from .models import Event, PostContent, PostLikes, PostComments
+from talkproject.permissions import IsEventCreatorOrReadOnly
+from .serializers import (
+    EventSerializer, 
+    PostContentSerializer, 
+    PostCommentsSerializer, 
+    SharePostSerializer, 
+    PostLikesSerializer,
+    RePostContentSerializer
+)
 
 tag_names = {
     "event": "Event",
     "post": "Post",
+    "comment": "Comment"
 }
 
 # =========================
@@ -19,7 +28,7 @@ tag_names = {
 class EventCreateAPIView(generics.CreateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
 
     @extend_schema(
         tags=[tag_names["event"]],
@@ -42,6 +51,7 @@ class EventListAPIView(generics.ListAPIView):
 class EventUpdateAPIView(generics.UpdateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
     lookup_field = "pk"
     http_method_names = ['patch']
 
@@ -55,6 +65,7 @@ class EventUpdateAPIView(generics.UpdateAPIView):
 class EventDeleteAPIView(generics.DestroyAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
     lookup_field = "pk"
 
     @extend_schema(
@@ -81,7 +92,6 @@ class CreatePostContentView(generics.GenericAPIView):
     @extend_schema(tags=[tag_names['post']], operation_id="Create a Post")
     def post(self, request, *args, **kwargs):
         data = request.data
-        print(data)
         serializer = self.get_serializer(data=data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -113,7 +123,11 @@ class RetrievePostContentView(generics.RetrieveAPIView):
     serializer_class = PostContentSerializer
     lookup_field = "pk"
 
-    @extend_schema(tags=[tag_names['post']], operation_id="Retrieve all Post")
+    @extend_schema(
+            tags=[tag_names['post']], 
+            operation_id="Retrieve all Post",
+            description="Retrieve all posts available in the system.\nN.B: Dataset with the `is_repost` field set to _True_ are reposted contents."
+    )
     def get(self, request, *args, **kwargs):
         posts = self.get_queryset()
         try:
@@ -123,7 +137,7 @@ class RetrievePostContentView(generics.RetrieveAPIView):
                 status_mthd=status.HTTP_200_OK,
                 status="success",
                 mssg="Posts retrieved successfully",
-                data=data
+                data=[post.post_profile() for post in posts]
             ))
         except Exception as e:
             return Response(custom_response(
@@ -179,10 +193,11 @@ class DeletePostContentView(generics.DestroyAPIView):
 # =========================
 class LikePostContentView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = PostLikesSerializer
 
-    @extend_schema(tags=[tag_names['post']], operation_id="Like a Post")
+    @extend_schema(tags=[tag_names['post']], operation_id="Like a Post", responses={200: PostLikesSerializer})
     def post(self, request, *args, **kwargs):
-        post_id = request.data.get("post_id")
+        post_id = request.data.get("post")
         user = request.user
 
         if not post_id:
@@ -234,9 +249,9 @@ class CommentPostContentView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PostCommentsSerializer
 
-    @extend_schema(tags=[tag_names['post']], operation_id="Comment on a Post")
+    @extend_schema(tags=[tag_names['comment']], operation_id="Comment on a Post")
     def post(self, request, *args, **kwargs):
-        post_id = request.data.get("post_id")
+        post_id = request.data.get("post")
         user = request.user
 
         if not post_id:
@@ -286,7 +301,7 @@ class RetrievePostCommentsView(generics.RetrieveAPIView):
     permission_classes=[IsAuthenticated]
     lookup_field = "post_id"
 
-    @extend_schema(tags=[tag_names['post']], operation_id="Retrieve Comments for a Post")
+    @extend_schema(tags=[tag_names['comment']], operation_id="Retrieve Comments for a Post")
     def get(self, request, *args, **kwargs):
         post_id = self.kwargs.get(self.lookup_field)
 
@@ -309,6 +324,69 @@ class RetrievePostCommentsView(generics.RetrieveAPIView):
                 status_mthd=status.HTTP_200_OK,
                 status="success",
                 mssg="Comments retrieved successfully",
+                data=serializer.data
+            )
+        )
+
+class UpdateCommentView(generics.UpdateAPIView):
+    queryset = PostComments.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+    lookup_field = "comment_id"
+    http_method_names = ['patch']
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Update a Comment", description="Update a comment on a post using the comment's ID.")
+    def patch(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+class DeleteCommentView(generics.DestroyAPIView):
+    queryset = PostComments.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+    lookup_field = "comment_id"
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Delete a Comment", description="Delete a comment on a post using the comment's ID.")
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Comment deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+class RepostContentView(generics.GenericAPIView):
+    serializer_class = RePostContentSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names["post"]], operation_id="Repost a content")
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(custom_response(
+            status_mthd=status.HTTP_200_OK,
+            status="success",
+            mssg="Reposted successfully",
+            data=serializer.data
+        ), )
+
+class SharePostContentView(generics.CreateAPIView):
+    serializer_class = SharePostSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Share a Post")
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(shared_by=request.user)
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Post shared successfully",
                 data=serializer.data
             )
         )
