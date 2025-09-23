@@ -28,7 +28,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
             "password",
             "university",
             "level",
-            # "registration_number",
             "state",
             "policy"
         ]
@@ -40,6 +39,29 @@ class CustomUserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+
+class CustomUserAnalyticsSerializer(serializers.ModelSerializer):
+    user_role = serializers.ChoiceField(choices=["service providers", "individuals"], read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "id",
+            "talk_id",
+            "email",
+            "first_name",
+            "last_name",
+            "user_role",
+            "gender",
+            "university",
+            "level",
+            "state",
+            "policy",
+            "email_verified",
+            "created",
+        ]
+        read_only_fields = ["id", "email_verified"]
+    
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
@@ -55,6 +77,17 @@ class UserLoginSerializer(serializers.Serializer):
     def create(self, validated_data):
         return validated_data
 
+class UpdateUserRoleSerializer(serializers.ModelSerializer):
+    user_role = serializers.ChoiceField(choices=["service providers", "individuals"], required=True)
+    class Meta:
+        model = CustomUser
+        fields = ["user_role"]
+
+    def update(self, instance, validated_data):
+        if validated_data:
+            instance.user_role = validated_data.get("user_role", instance.user_role)
+            instance.save()
+        return instance
 class RefreshTokenSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True)
 
@@ -72,7 +105,10 @@ class IndividualSerializer(serializers.ModelSerializer):
         model = Individual
         fields = [
             "phone_number",
-            "date_of_birth"
+            "date_of_birth",
+            "bio",
+            "interests",
+            "photo",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
@@ -91,8 +127,20 @@ class IndividualSerializer(serializers.ModelSerializer):
 class ServiceProvidersSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "user", "address_verified"]
+        fields = [
+            "business_name",
+            "business_email",
+            "business_tel",
+            "business_type",
+            "address",
+            "description",
+            "logo",
+            "bio",
+            "created",
+            "updated",
+            "address_verified",
+        ]
+        read_only_fields = ["id", "created", "updated", "user", "address_verified"]
 
     def create(self, validated_data):
         try:
@@ -110,6 +158,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
             instance.business_type = validated_data.get("business_type", instance.business_type)
             instance.address = validated_data.get("address", instance.address)
             instance.description = validated_data.get("description", instance.description)
+            instance.logo = validated_data.get("logo", instance.logo)
             instance.save()
         return instance
 
@@ -181,4 +230,3 @@ class ResendEmailActivationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return validated_data
-

@@ -76,11 +76,10 @@ class PostContent(PolymorphicModel, ModelUtilsMixin, CommonFields):
         super().save(*args, **kwargs)
 
     def comments_count(self):
-        comments_manager = getattr(self, 'post_comments', None)
-        return comments_manager.count() if comments_manager else 0
+        return self.post_comments.count()
 
     def get_likes(self):
-        likes = self.post_likes.get_likes() if hasattr(self, 'post_likes') else []
+        likes = self.post_likes.get_likes()
         return likes if likes else []
 
     def get_images(self):
@@ -164,6 +163,7 @@ class PostComments(ModelUtilsMixin):
 
     def __str__(self):
         return f"Comment by {self.commented_by.talk_id} on {self.post.title}"
+    
 
 class PostImages(ModelUtilsMixin):
     post = models.ForeignKey(PostContent, on_delete=models.CASCADE, related_name="post_images")

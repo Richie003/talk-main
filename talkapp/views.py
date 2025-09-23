@@ -2,6 +2,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 import jwt
+from django.db import transaction
 from .custom_auth_backend import CustomRefreshToken as RefreshToken
 from django.template.loader import get_template
 from utils.helpers import send_email_in_thread, custom_response
@@ -17,6 +18,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from .models import CustomUser, Individual, ServiceProvider, OneTimePassword
+from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import (
     CustomUserSerializer, 
     UserLoginSerializer, 
@@ -26,6 +28,7 @@ from .serializers import (
     UpdateUserProfileSerializer,
     IndividualSerializer,
     ServiceProvidersSerializer,
+    CustomUserAnalyticsSerializer
 )
 from django.contrib.auth import get_user_model
 from django.contrib import auth
@@ -35,6 +38,16 @@ from rest_framework import exceptions
 from rest_framework_simplejwt.views import TokenRefreshView
 
 User = get_user_model()
+tag_names = {
+    "Students Auth": "Students Auth",
+    "Profile": "Profile",
+    "Service Providers": "Service Providers",
+    "Individuals": "Individuals",
+    "Password validators": "Password validators",
+    "OTP Verification": "OTP Verification",
+    "Account Updates": "Account Updates",
+    "Admin": "Admin",
+}
 
 class CreateUserViewSet(CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -77,6 +90,36 @@ class CreateUserViewSet(CreateAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(response_data, status=status.HTTP_201_CREATED)
+
+class UserMetricsView(GenericAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserAnalyticsSerializer
+    @extend_schema(tags=["Admin"], operation_id="Get total number of users")
+
+    def get(self, request):
+        user_data = self.get_serializer(self.get_queryset(), many=True).data
+        total_users = self.get_queryset().count()
+        return Response({
+            "status": "success",
+            "code": status.HTTP_200_OK,
+            "message": "Total users retrieved successfully",
+            "data": {"total_users": total_users, "users": user_data}
+        }, status=status.HTTP_200_OK)
+
+class UserRoleMetricsView(GenericAPIView):
+    queryset = CustomUser.objects.all()
+    @extend_schema(tags=["Admin"], operation_id="Get total number of users by role")
+
+    def get(self, request):
+        individuals = self.get_queryset().filter(user_role="individuals").count()
+        service_providers = self.get_queryset().filter(user_role="service providers").count()
+        unassigned = self.get_queryset().filter(user_role="").count()
+        return Response({
+            "status": "success",
+            "code": status.HTTP_200_OK,
+            "message": f"Total users retrieved successfully",
+            "data": {"individuals": individuals, "service_providers": service_providers, "unassigned": unassigned}
+        }, status=status.HTTP_200_OK)
 
 class LoginView(GenericAPIView):
     serializer_class = UserLoginSerializer
@@ -248,11 +291,14 @@ class ResendOTP(GenericAPIView):
 
         try:
             user = User.objects.get(email=email)
-            otp_code = OneTimePassword.objects.get(user_id=user.id).otp
+            with transaction.atomic():
+                OneTimePassword.objects.get(user_id=user.id).delete()
+                otp_code = OneTimePassword.objects.create(user_id=user.id)
+                otp_code.save()
 
             email_data = get_template("emails/email_verification.html").render({
                 "heading": "",
-                "content": f"Thank you for signing up! Here's your OTP code: {otp_code}",
+                "content": f"Thank you for signing up! Here's your OTP code: {otp_code.otp}",
                 "email": user.email,
             })
 
@@ -274,7 +320,7 @@ class UserProfileViewSet(RetrieveAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=["Profile Updates"], operation_id="View user profile")
+    @extend_schema(tags=[tag_names["Account Updates"]], operation_id="View user profile")
     def get(self, request, *args, **kwargs):
         user = self.request.user
         return Response({
@@ -289,8 +335,8 @@ class UpdateUserProfileViewSet(UpdateAPIView):
     serializer_class = UpdateUserProfileSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["patch"]
-    @extend_schema(tags=["Profile Updates"], operation_id="Update user profile")
-    
+    @extend_schema(tags=[tag_names["Account Updates"]], operation_id="Update user profile")
+
     # def get_object(self):
     #     return self.request.user
     
@@ -311,7 +357,9 @@ class CreateIndividualViewSet(CreateAPIView):
     queryset = Individual.objects.all()
     permission_classes = [IsAuthenticated]
     http_method_names = ["post"]
-    @extend_schema(tags=["Profile Updates"], operation_id="Create individual profile")
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(tags=[tag_names["Individuals"]], operation_id="Create individual profile")
 
     def post(self, request, *args, **kwargs):
         try:
@@ -331,12 +379,62 @@ class CreateIndividualViewSet(CreateAPIView):
                 "message": str(e),
             }, status=status.HTTP_400_BAD_REQUEST)
 
+class GetIndividualProfileViewSet(RetrieveAPIView):
+    serializer_class=IndividualSerializer
+    queryset = Individual.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get"]
+    @extend_schema(tags=[tag_names["Individuals"]], operation_id="View individual's profile")
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        try:
+            individual = Individual.objects.get(user=user)
+            serializer = self.get_serializer(individual)
+            return Response({
+                "status": "success",
+                "code": status.HTTP_200_OK,
+                "message": "Individual profile retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                "status": "failed",
+                "code": status.HTTP_404_NOT_FOUND,
+                "message": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class RetrieveIndividualProfileViewSet(GenericAPIView):
+    serializer_class = IndividualSerializer
+    queryset = Individual.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get"]
+    lookup_field = "pk"
+    @extend_schema(tags=[tag_names["Individuals"]], operation_id="View individual's profile")
+    def get(self, request, pk=None):
+        queryset = self.get_queryset()
+        try:
+            instance = queryset.get(user_id=pk)
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "code": status.HTTP_200_OK,
+                "message": "Individual profile retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                "status": "failed",
+                "code": status.HTTP_404_NOT_FOUND,
+                "message": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+
 class CreateServiceProvidersViewSet(CreateAPIView):
     serializer_class = ServiceProvidersSerializer
     queryset = ServiceProvider.objects.all()
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     http_method_names = ["post"]
-    @extend_schema(tags=["Profile Updates"], operation_id="Create Service Provider's Profile")
+    @extend_schema(tags=[tag_names["Service Providers"]], operation_id="Create Service Provider's Profile")
 
     def post(self, request, *args, **kwargs):
         try:
@@ -356,12 +454,62 @@ class CreateServiceProvidersViewSet(CreateAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+class GetServiceProviderProfileViewSet(RetrieveAPIView):
+    serializer_class=ServiceProvidersSerializer
+    queryset = ServiceProvider.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get"]
+    @extend_schema(tags=[tag_names["Service Providers"]], operation_id="View Service Provider's profile")
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        try:
+            service_provider = ServiceProvider.objects.get(user=user)
+            serializer = self.get_serializer(service_provider)
+            return Response({
+                "status": "success",
+                "code": status.HTTP_200_OK,
+                "message": "Service provider profile retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                "status": "failed",
+                "code": status.HTTP_404_NOT_FOUND,
+                "message": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class RetrieveServiceProviderProfileViewSet(GenericAPIView):
+    serializer_class = ServiceProvidersSerializer
+    queryset = ServiceProvider.objects.all()
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get"]
+    lookup_field = "pk"
+    @extend_schema(tags=[tag_names["Service Providers"]], operation_id="View Service Provider's profile")
+    def get(self, request, pk=None):
+        queryset = self.get_queryset()
+        try:
+            instance = queryset.get(user_id=pk)
+            serializer = self.get_serializer(instance)
+            return Response({
+                "status": "success",
+                "code": status.HTTP_200_OK,
+                "message": "Service provider profile retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist as e:
+            return Response({
+                "status": "failed",
+                "code": status.HTTP_404_NOT_FOUND,
+                "message": str(e)
+            }, status=status.HTTP_404_NOT_FOUND)
+
 class UpdateIndividualProfileViewSet(UpdateAPIView):
     serializer_class = IndividualSerializer
     queryset = Individual.objects.all()
     permission_classes = [IsAuthenticated]
     http_method_names = ["patch"]
-    @extend_schema(tags=["Profile Updates"], operation_id="Update individual profile")
+    parser_classes = [MultiPartParser, FormParser]
+    @extend_schema(tags=[tag_names["Individuals"]], operation_id="Update individual profile")
     
     def patch(self, request, *args, **kwargs):
         user = Individual.objects.get(user=self.request.user)
@@ -379,9 +527,10 @@ class UpdateServiceProviderProfileViewSet(UpdateAPIView):
     serializer_class = ServiceProvidersSerializer
     queryset = ServiceProvider.objects.all()
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
     http_method_names = ["patch"]
-    @extend_schema(tags=["Profile Updates"], operation_id="Update Service provider's profile")
-    
+    @extend_schema(tags=[tag_names["Service Providers"]], operation_id="Update Service provider's profile")
+
     def patch(self, request, *args, **kwargs):
         user = ServiceProvider.objects.get(user=self.request.user)
         serializer = self.get_serializer(user, data=request.data, partial=True)
@@ -394,18 +543,18 @@ class UpdateServiceProviderProfileViewSet(UpdateAPIView):
             "data": serializer.data,
         }, status=status.HTTP_200_OK)
 
-class RetrieveServiceProviderProfileViewSet(GenericAPIView):
+class RetrieveUserProfileViewSet(GenericAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = [IsAuthenticated]
     http_method_names = ["get"]
-    lookup_field = "id"
+    lookup_field = "talk_id"
 
-    @extend_schema(tags=["Profile Updates"], operation_id="View Service provider's profile")
+    @extend_schema(tags=[tag_names["Account Updates"]], operation_id="View Service provider's profile", responses={200: CustomUserSerializer})
 
-    def get(self, request, id=None):
+    def get(self, request, talk_id=None):
         queryset = self.get_queryset()
         try:
-            instance = queryset.get(id=id).profile()
+            instance = queryset.get(talk_id=talk_id).profile()
             return Response({
                 "status": "success",
                 "code": status.HTTP_200_OK,
@@ -413,7 +562,6 @@ class RetrieveServiceProviderProfileViewSet(GenericAPIView):
                 "data": instance
             }, status=status.HTTP_200_OK)
         except ObjectDoesNotExist as e:
-            print("Error occurred:", e)
             return Response({
                 "status": "failed",
                 "code": status.HTTP_404_NOT_FOUND,
