@@ -174,7 +174,7 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "level",
-            # "registration_number"
+            "user_role"
         ]
 
         def update(self, instance, validated_data):
@@ -183,7 +183,7 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
                 instance.first_name = validated_data.get("first_name", instance.first_name)
                 instance.last_name = validated_data.get("last_name", instance.last_name)
                 instance.level = validated_data.get("level", instance.level)
-                # instance.registration_number = validated_data.get("registration_number", instance.registration_number)
+                instance.user_role = validated_data.get("user_role", instance.user_role)
                 instance.save()
             return instance
 
