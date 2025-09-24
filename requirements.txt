@@ -8,6 +8,7 @@ django-environ
 django-polymorphic
 drf-yasg==1.21.8
 drf-spectacular
+psycopg2-binary
 inflect
 inflection==0.5.1
 gunicorn==21.2.0
