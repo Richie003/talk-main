@@ -46,7 +46,7 @@ account_urlpatterns = [
     # user profile
     path("get-user-profile", UserProfileViewSet.as_view(), name="get_user_profile"),
     path("update-bio", UpdateUserProfileViewSet.as_view(), name="update_profile"),
-    path("get-user-profile/<str:talk_id>", RetrieveUserProfileViewSet.as_view(), name="retrieve_service_provider_profile"),
+    path("get-user-profile/<str:pk>", RetrieveUserProfileViewSet.as_view(), name="retrieve_user_profile"),
 ]
 admin_urlpatterns = [
     path("get-all-users", UserMetricsView.as_view(), name="get_all_users"),
