@@ -52,7 +52,7 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
     username = models.CharField(max_length=150, unique=False, blank=True, null=True)
     first_name = models.CharField(max_length=255, blank=False)
     last_name = models.CharField(max_length=150, blank=False)
-    talk_id = models.CharField(max_length=10, unique=True, blank=True)
+    talk_id = models.CharField(max_length=255, unique=True, blank=True)
     email = models.EmailField(unique=True, blank=True)
     gender = models.CharField(max_length=10, default="male", choices=[("male", "Male"), ("female", "Female")])
     university = models.CharField(max_length=100, blank=True)
