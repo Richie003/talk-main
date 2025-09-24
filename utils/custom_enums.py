@@ -32,6 +32,7 @@ class Level(BaseEnum):
 class UserRole(BaseEnum):
     SERVICE_PROVIDERS = "service providers", "Service Providers"
     INDIVIDUALS = "individuals", "Individuals"
+    NONE = "none", "None"
 
 # ~ ~ ~ Products ~ ~ ~ #
 
