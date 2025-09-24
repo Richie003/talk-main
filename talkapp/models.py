@@ -50,7 +50,7 @@ class UserManager(BaseUserManager):
 
 class CustomUser(AbstractUser, ModelUtilsMixin):
     username = models.CharField(max_length=150, unique=False, blank=True, null=True)
-    first_name = models.CharField(max_length=30, blank=False)
+    first_name = models.CharField(max_length=255, blank=False)
     last_name = models.CharField(max_length=150, blank=False)
     talk_id = models.CharField(max_length=10, unique=True, blank=True)
     email = models.EmailField(unique=True, blank=True)
