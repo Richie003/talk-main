@@ -547,18 +547,18 @@ class RetrieveUserProfileViewSet(GenericAPIView):
     queryset = CustomUser.objects.all()
     permission_classes = [IsAuthenticated]
     http_method_names = ["get"]
-    lookup_field = "talk_id"
+    lookup_field = "pk"
 
-    @extend_schema(tags=[tag_names["Account Updates"]], operation_id="View Service provider's profile", responses={200: CustomUserSerializer})
+    @extend_schema(tags=[tag_names["Account Updates"]], operation_id="View User's profile", responses={200: CustomUserSerializer})
 
-    def get(self, request, talk_id=None):
+    def get(self, request, pk=None):
         queryset = self.get_queryset()
         try:
-            instance = queryset.get(talk_id=talk_id).profile()
+            instance = queryset.get(pk=pk).profile()
             return Response({
                 "status": "success",
                 "code": status.HTTP_200_OK,
-                "message": "Service provider profile retrieved successfully",
+                "message": "User profile retrieved successfully",
                 "data": instance
             }, status=status.HTTP_200_OK)
         except ObjectDoesNotExist as e:
