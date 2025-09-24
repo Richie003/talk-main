@@ -59,9 +59,9 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
     level = models.CharField(default=Level.LEVEL_100, max_length=100, blank=False, choices=Level.choices())
     # registration_number = models.CharField(max_length=100, blank=True)
     state = models.CharField(max_length=100, blank=True)
-    user_role = models.CharField(max_length=20, default=UserRole.NONE, choices=UserRole.choices())
+    user_role = models.CharField(max_length=255, default=UserRole.NONE, choices=UserRole.choices())
     policy = models.BooleanField(default=False, blank=True)
-    availability = models.CharField(max_length=20, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE)
+    availability = models.CharField(max_length=255, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE)
     email_verified = models.BooleanField(default=False, blank=True)
     marketing_emails = models.BooleanField(default=False, blank=True)
 
@@ -200,3 +200,5 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.user} rated {self.service_provider} with {self.rating}"
+
+
