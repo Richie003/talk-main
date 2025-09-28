@@ -14,8 +14,10 @@ import re
 from django.core.exceptions import ValidationError
 
 user = settings.AUTH_USER_MODEL
+print(f"Availability {AvailabilityStatus.AVAILABLE[0]}")
+
 def profile_image_upload_path(instance, filename):
-    return f"imgs/{instance.user.talk_id}/{slugify(instance.user.talk-id)}-{filename}"
+    return f"imgs/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
 
 class UserManager(BaseUserManager):
     """User Manager that knows how to create users via email instead of username"""
@@ -54,14 +56,13 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
     last_name = models.CharField(max_length=150, blank=False)
     talk_id = models.CharField(max_length=255, unique=True, blank=True)
     email = models.EmailField(unique=True, blank=True)
-    gender = models.CharField(max_length=10, default="male", choices=[("male", "Male"), ("female", "Female")])
+    gender = models.CharField(max_length=11, default="male", choices=[("male", "Male"), ("female", "Female")])
     university = models.CharField(max_length=100, blank=True)
-    level = models.CharField(default=Level.LEVEL_100, max_length=100, blank=False, choices=Level.choices())
-    # registration_number = models.CharField(max_length=100, blank=True)
+    level = models.CharField(default=Level.LEVEL_100[0], max_length=100, blank=False, choices=Level.choices())
     state = models.CharField(max_length=100, blank=True)
-    user_role = models.CharField(max_length=255, default=UserRole.NONE, choices=UserRole.choices())
+    user_role = models.CharField(max_length=255, default=UserRole.INDIVIDUALS[0], choices=UserRole.choices())
     policy = models.BooleanField(default=False, blank=True)
-    availability = models.CharField(max_length=255, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE)
+    availability = models.CharField(max_length=255, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE[0])
     email_verified = models.BooleanField(default=False, blank=True)
     marketing_emails = models.BooleanField(default=False, blank=True)
 
