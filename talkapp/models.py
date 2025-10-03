@@ -14,10 +14,12 @@ import re
 from django.core.exceptions import ValidationError
 
 user = settings.AUTH_USER_MODEL
-print(f"Availability {AvailabilityStatus.AVAILABLE[0]}")
 
-def profile_image_upload_path(instance, filename):
-    return f"imgs/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
+def individual_profile_image_upload_path(instance, filename):
+    return f"imgs/individual/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
+
+def sp_profile_image_upload_path(instance, filename):
+    return f"imgs/service_provider/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
 
 class UserManager(BaseUserManager):
     """User Manager that knows how to create users via email instead of username"""
@@ -164,7 +166,7 @@ class Individual(ModelUtilsMixin):
     phone_number = models.CharField(max_length=25, blank=False)
     date_of_birth = models.DateField()
     interests = models.JSONField(blank=True, null=True)
-    photo = models.FileField(upload_to=f"individual/{profile_image_upload_path}", blank=True)
+    photo = models.FileField(upload_to=individual_profile_image_upload_path, blank=True)
     bio = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -182,7 +184,7 @@ class ServiceProvider(ModelUtilsMixin):
     business_email = models.EmailField(unique=True)
     business_tel = models.CharField(max_length=25, blank=False)
     business_type = models.CharField(max_length=100)
-    logo = models.FileField(upload_to=f"service_provider/{profile_image_upload_path}", blank=True)
+    logo = models.FileField(upload_to=sp_profile_image_upload_path, blank=True)
     description = models.TextField()
     city = models.CharField(max_length=100)
     address = models.CharField(max_length=255)
