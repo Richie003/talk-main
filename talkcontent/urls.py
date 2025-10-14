@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views import (
-    EventCreateAPIView, EventListAPIView, 
+    EventCreateAPIView, EventListAPIView, EventDetailAPIView,
     EventUpdateAPIView, EventDeleteAPIView,
     CreatePostContentView, RetrievePostContentView,
     RetrieveDetailedPostContent, DeletePostContentView,
@@ -12,6 +12,7 @@ from .views import (
 # Events
 events_urlpatterns = [
     path('', EventListAPIView.as_view(), name='event-list'),
+    path('<uuid:id>/', EventDetailAPIView.as_view(), name='event-detail'),
     path('create/', EventCreateAPIView.as_view(), name='event-create'),
     path("update/<uuid:pk>/",
          EventUpdateAPIView.as_view(), name="event-update"),
