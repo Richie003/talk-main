@@ -1,5 +1,3 @@
-# serializers.py
-
 from .models import News, NewsImage, Event, PostContent, PostImages, PostVideos, PostLikes, PostComments, SharePost, RePostContent
 from rest_framework import serializers
 from utils.helpers import FormattedDateTimeField
@@ -8,7 +6,8 @@ from utils.helpers import FormattedDateTimeField
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = ['id', 'user', 'event_name', 'event_image', 'event_date', 'event_fees', 'created', 'updated']
+        read_only_fields = ['id', 'user', 'created', 'updated']
 
 
 class NewsImageSerializer(serializers.ModelSerializer):

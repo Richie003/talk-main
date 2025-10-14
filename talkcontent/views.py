@@ -29,13 +29,27 @@ class EventCreateAPIView(generics.CreateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
         tags=[tag_names["event"]],
         operation_id="Create_Event"
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        user = request.user
+        data = request.data.copy()
+        serializer = self.get_serializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=user)
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Event created successfully",
+                data=serializer.data
+            )
+        )
 
 class EventListAPIView(generics.ListAPIView):
     queryset = Event.objects.all()
@@ -47,6 +61,43 @@ class EventListAPIView(generics.ListAPIView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
+
+class EventDetailAPIView(generics.RetrieveAPIView):
+    serializer_class=EventSerializer
+    queryset=Event.objects.all()
+    permission_classes=[IsAuthenticated]
+    parser_classes=[MultiPartParser, FormParser]
+    lookup_field="id"
+
+    @extend_schema(
+        tags=[tag_names["event"]],
+        operation_id="Retrieve_Event"
+    )
+    def get(self, *args, **kwargs):
+        event_id = kwargs.get(self.lookup_field)
+        try:
+            event = Event.objects.get(id=event_id)
+            serializer = self.get_serializer(event)
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Event retrieved successfully",
+                data=serializer.data
+            ))
+        except Event.DoesNotExist:
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="Event not found",
+                data=None
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
 
 class EventUpdateAPIView(generics.UpdateAPIView):
     queryset = Event.objects.all()

@@ -1,3 +1,4 @@
+
 from django.db import models
 from utils.models import ModelUtilsMixin
 from django.utils.translation import gettext_lazy as _
@@ -11,6 +12,9 @@ user = settings.AUTH_USER_MODEL
 
 def post_image_upload_path(instance, filename):
     return f"post/imgs/{instance.post.user.talk_id}/{slugify(instance.post.title)}-{filename}"
+
+def event_image_upload_path(instance, filename):
+    return f"events/imgs/{instance.user.talk_id}/{slugify(instance.event_name)}-{filename}"
 
 def post_video_upload_path(instance, filename):
     return f"post/vids/{instance.post.user.talk_id}/{slugify(instance.post.title)}-{filename}"
@@ -189,7 +193,8 @@ class SharePost(ModelUtilsMixin):
 
 class Event(ModelUtilsMixin, CommonFields):
     event_name = models.CharField(max_length=255)
-    event_image = models.ImageField(upload_to="")
+    event_description = models.TextField(default="", blank=True, max_length=350)
+    event_image = models.ImageField(upload_to=event_image_upload_path, null=True, blank=True)
     event_date = models.DateTimeField(default=timezone.now)
     event_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     
