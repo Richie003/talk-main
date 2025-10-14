@@ -6,7 +6,7 @@ from utils.helpers import FormattedDateTimeField
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = ['id', 'user', 'event_name', 'event_image', 'event_date', 'event_fees', 'created', 'updated']
+        fields = ['id', 'user', 'event_name', 'event_description', 'event_image', 'event_date', 'event_fees', 'created', 'updated']
         read_only_fields = ['id', 'user', 'created', 'updated']
 
 
