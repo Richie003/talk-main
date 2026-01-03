@@ -1,11 +1,12 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from utils.models import ModelUtilsMixin
-from utils.custom_enums import Level, UserRole, AvailabilityStatus
+from utils.custom_enums import Level, UserRole, AvailabilityStatus, RegistrationMethod
 from django.db import models, IntegrityError, transaction
 from django.conf import settings
 import random
 import string
+from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -14,6 +15,11 @@ from django.core.exceptions import ValidationError
 
 user = settings.AUTH_USER_MODEL
 
+def individual_profile_image_upload_path(instance, filename):
+    return f"imgs/individual/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
+
+def sp_profile_image_upload_path(instance, filename):
+    return f"imgs/service_provider/{instance.user.talk_id}/{slugify(instance.user.talk_id)}-{filename}"
 
 class UserManager(BaseUserManager):
     """User Manager that knows how to create users via email instead of username"""
@@ -47,19 +53,23 @@ class UserManager(BaseUserManager):
 
 
 class CustomUser(AbstractUser, ModelUtilsMixin):
-    username = None
-    talk_id = models.CharField(max_length=10, unique=True, blank=True)
+    username = models.CharField(max_length=150, unique=False, blank=True, null=True)
+    first_name = models.CharField(max_length=255, blank=False)
+    last_name = models.CharField(max_length=150, blank=False)
+    talk_id = models.CharField(max_length=255, unique=True, blank=True)
     email = models.EmailField(unique=True, blank=True)
-    gender = models.CharField(max_length=10, default="male", choices=[("male", "Male"), ("female", "Female")])
+    gender = models.CharField(max_length=11, default="male", choices=[("male", "Male"), ("female", "Female")])
     university = models.CharField(max_length=100, blank=True)
-    level = models.CharField(default=Level.LEVEL_100, max_length=100, blank=False, choices=Level.choices())
-    # registration_number = models.CharField(max_length=100, blank=True)
+    level = models.CharField(default=Level.LEVEL_100[0], max_length=100, blank=False, choices=Level.choices())
     state = models.CharField(max_length=100, blank=True)
-    user_role = models.CharField(max_length=20, default=UserRole.SERVICE_PROVIDERS, choices=UserRole.choices())
+    user_role = models.CharField(max_length=255, default=UserRole.INDIVIDUALS[0], choices=UserRole.choices())
+    registration_type = models.CharField(max_length=7, choices=RegistrationMethod.choices(), default=RegistrationMethod.INAPP[0])
     policy = models.BooleanField(default=False, blank=True)
-    availability = models.CharField(max_length=20, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE)
+    availability = models.CharField(max_length=255, choices=AvailabilityStatus.choices(), default=AvailabilityStatus.AVAILABLE[0], blank=True)
     email_verified = models.BooleanField(default=False, blank=True)
+    hide_my_info = models.BooleanField(default=False)
     marketing_emails = models.BooleanField(default=False, blank=True)
+    
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -74,17 +84,18 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
         verbose_name_plural = "Users"
 
     def profile(self):
-        user_role = eval(self.user_role)
+        user_role = self.user_role
         data = {
             "user_id": self.id,
             "talk_id": self.talk_id,
-            "user_role": user_role[0],
+            "user_role": user_role,
             "email": self.email,
             "first_name": self.first_name,
             "last_name": self.last_name,
             "university": self.university,
             "level": self.level,
             "state": self.state,
+            "hide_my_info": self.hide_my_info,
             "email_verified": self.email_verified,
             "policy": self.policy,
             "marketing_emails": self.marketing_emails,
@@ -95,43 +106,47 @@ class CustomUser(AbstractUser, ModelUtilsMixin):
             data["interests"] = self.individuals_profile.interests
             data["bio"] = self.individuals_profile.bio
             data["profile_photo"] = self.individuals_profile.get_profile_photo().photo.url if hasattr(self.individuals_profile, 'get_profile_photo') else None
-        elif user_role[0] == "service providers":
-            data["business_name"] = self.serviceproviders_profile.business_name
-            data["business_email"] = self.serviceproviders_profile.business_email
-            data["business_tel"] = self.serviceproviders_profile.business_tel
-            data["business_type"] = self.serviceproviders_profile.business_type
-            data["description"] = self.serviceproviders_profile.description
-            data["city"] = self.serviceproviders_profile.city
-            data["address"] = self.serviceproviders_profile.address
-            data["address_verified"] = self.serviceproviders_profile.address_verified
-            data["logo"] = self.get_logo().logo.url if hasattr(self, 'get_logo') else None
+        elif user_role[1] == "service providers":
+            data["business_name"] = self.serviceproviders_profile.business_name 
+            data["business_email"] = self.serviceproviders_profile.business_email 
+            data["business_tel"] = self.serviceproviders_profile.business_tel 
+            data["business_type"] = self.serviceproviders_profile.business_type 
+            data["description"] = self.serviceproviders_profile.description 
+            data["city"] = self.serviceproviders_profile.city 
+            data["address"] = self.serviceproviders_profile.address 
+            data["address_verified"] = self.serviceproviders_profile.address_verified 
+            data["logo"] = self.get_logo().logo.url if hasattr(self.serviceproviders_profile, 'get_logo') else None
         return data
 
-    def generate_talk_id(self):
-        first_initial = self.first_name[0].upper()
-        last_initial = self.last_name[0].upper()
-        return first_initial + last_initial + ''.join(random.choices(string.digits, k=5))
-
-    def clean(self):
-        if self.talk_id:
-            if not re.match(r"^[A-Z]{2}\d{5}$", self.talk_id):
-                raise ValidationError("talk_id must be 2 uppercase letters followed by 5 digits (e.g., AB12345)")
 
     def save(self, *args, **kwargs):
+        # (#) Only generate a talk_id when it's empty and we have initials to form it from.
         if not self.talk_id and self.first_name and self.last_name:
-            for _ in range(10):
+            # (#) Normalize initials to A-Z and provide safe fallbacks
+            first = (self.first_name.strip() or "X")[0].upper()
+            last = (self.last_name.strip() or "X")[0].upper()
+            max_attempts = 100  # (#) increased from 10 to reduce chance of failure
+            attempt = 0
+            from django.utils.crypto import get_random_string
+            while attempt < max_attempts:
+                # (#) increase entropy: using 6 digits or alphanumeric suffix
+                suffix = get_random_string(length=6, allowed_chars='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+                self.talk_id = f"{first}{last}{suffix}"
                 try:
-                    self.talk_id = self.generate_talk_id()
+                    # (#) Atomic save ensures unique constraint violations roll back cleanly.
                     with transaction.atomic():
+                        # (#) Optionally call self.clean() here to enforce format rules:
+                        # self.clean()
                         super().save(*args, **kwargs)
                     return
                 except IntegrityError:
+                    attempt += 1
+                    # (#) Loop will retry with a fresh talk_id
                     continue
-            raise Exception(
-                "Failed to generate a unique talk_id after multiple attempts."
-            )
-        else:
-            super().save(*args, **kwargs)
+            # (#) Be explicit in the error type and message
+            raise RuntimeError(f"Failed to generate a unique talk_id after {max_attempts} attempts")
+        # (#) If talk_id already set (or names missing), fall back to normal save behavior.
+        super().save(*args, **kwargs)
 
 @receiver(post_save, sender=CustomUser)
 def create_otp_for_new_user(sender, instance, created, **kwargs):
@@ -159,17 +174,16 @@ class Individual(ModelUtilsMixin):
     phone_number = models.CharField(max_length=25, blank=False)
     date_of_birth = models.DateField()
     interests = models.JSONField(blank=True, null=True)
+    photo = models.FileField(upload_to=individual_profile_image_upload_path, blank=True)
+    photo_url = models.URLField(max_length=255, blank=True, null=True, help_text="URL of the profile photo if uploaded via URL or third-party service(Google SSO).")
     bio = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return str(self.user)
     
     def get_profile_photo(self):
-        return IndividualProfilePhoto.objects.get(individual_id=self.id)
+        return self.photo.url if self.photo else self.photo_url
 
-class IndividualProfilePhoto(ModelUtilsMixin):
-    individual_id = models.OneToOneField(Individual, on_delete=models.CASCADE)
-    photo = models.FileField(upload_to='logos/', blank=True)
 
 class ServiceProvider(ModelUtilsMixin):
     user = models.OneToOneField(
@@ -179,6 +193,7 @@ class ServiceProvider(ModelUtilsMixin):
     business_email = models.EmailField(unique=True)
     business_tel = models.CharField(max_length=25, blank=False)
     business_type = models.CharField(max_length=100)
+    logo = models.FileField(upload_to=sp_profile_image_upload_path, blank=True)
     description = models.TextField()
     city = models.CharField(max_length=100)
     address = models.CharField(max_length=255)
@@ -188,12 +203,7 @@ class ServiceProvider(ModelUtilsMixin):
         return str(self.business_name)
     
     def get_logo(self):
-        return ServiceProviderLogo.objects.get(service_provider_id=self.id)
-
-class ServiceProviderLogo(ModelUtilsMixin):
-    service_provider_id = models.OneToOneField(ServiceProvider, on_delete=models.CASCADE)
-    logo = models.FileField(upload_to='logos/', blank=True)
-
+        return self.logo.url if self.logo else None
 class Review(models.Model):
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
     user = models.ForeignKey(user, on_delete=models.CASCADE)
@@ -204,3 +214,51 @@ class Review(models.Model):
         return f"{self.user} rated {self.service_provider} with {self.rating}"
 
 
+class SaveUserProfile(ModelUtilsMixin):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    saved_user = models.ManyToManyField(CustomUser, related_name='saved_users')
+    # fullname, vocation, university, profile_photo
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
+    def __str__(self):
+        return f"{self.user.username}'s saved users"
+    
+    def save_user(self, user):
+        self.saved_user.add(user)
+    
+    def remove_user(self, user):
+        self.saved_user.remove(user)
+
+    def get_saved_users(self):
+        return self.saved_user.all()
+
+    def clear_saved_users(self):
+        self.saved_user.clear()
+    
+    def is_user_saved(self, user):
+        return self.saved_user.filter(id=user.id).exists()
+    
+    def get_user_saved_users(self):
+        return self.saved_user.filter(saved_items__user=self.user)
+
+    def get_saved_user_count(self):
+        return int(self.saved_user.count())
+
+    def get_saved_user_details(self):
+        saved_users = []
+        for user in self.saved_user.all():
+            if hasattr(user, "user_profile"):
+                saved_users.append(user.user_profile())
+            else:
+                saved_users.append({
+                    "id": user.id,
+                    "name": user.first_name + " " + user.last_name,
+                    "university": user.university,
+                    "service": user.serviceproviders_profile.business_type if hasattr(user, 'serviceproviders_profile') else "Student",
+                })
+        return saved_users
+    
+    def get_saved_user_by_id(self, user_id):
+        return self.user.filter(id=user_id).first().user_profile() if self.user.filter(id=user_id).exists() else None

@@ -1,30 +1,114 @@
 from rest_framework import status, generics
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from drf_yasg import openapi
-from .models import Event
-from .serializers import EventSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from utils.helpers import custom_response
+from .models import Event, PostContent, PostLikes, PostComments, SavedEventItem
+from talkproject.permissions import IsEventCreatorOrReadOnly
+from permissions.posts import CanEditDeletePostComment, CanViewPostContent
+from .serializers import (
+    EventSerializer, 
+    PostContentSerializer, 
+    PostCommentsSerializer, 
+    SharePostSerializer, 
+    PostLikesSerializer,
+    RePostContentSerializer,
+    SavedItemsSerializer
+)
+from rest_framework.generics import GenericAPIView
 
 tag_names = {
     "event": "Event",
+    "post": "Post",
+    "comment": "Comment"
 }
 
 # =========================
 # EVENTS VIEWS
 # =========================
 
+class SaveItemView(GenericAPIView):
+    """
+    Handles users saving product items for later.
+    Prevents duplicates and ensures atomic operations.
+    """
+    serializer_class = SavedItemsSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=[tag_names["event"]],
+        operation_id="Save an item for later",
+        description="Saves one or more product items for the authenticated user."
+    )
+    def post(self, request, *args, **kwargs):
+        event_ids = request.data.get("event", [])
+        user = request.user
+
+        if not isinstance(event_ids, list) or not event_ids:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg="Invalid or empty event list.",
+                data=None
+            ))
+
+        saved_items = []
+
+        try:
+            with transaction.atomic():
+                for event_id in event_ids:
+                    event = get_object_or_404(Event, id=str(event_id))
+                    saved_item, created = SavedEventItem.objects.get_or_create(
+                        user=user
+                    )
+                    if created:
+                        saved_item.save_item(event.id)
+                    saved_item.save_item(event.id)
+
+            return Response(custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg=f"Event saved successfully: {', '.join(saved_items) or 'No new items saved'}",
+                data=SavedItemsSerializer(SavedEventItem.objects.filter(user=user), many=True).data
+            ))
+
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
+
 
 class EventCreateAPIView(generics.CreateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes=[IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
         tags=[tag_names["event"]],
         operation_id="Create_Event"
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        user = request.user
+        data = request.data.copy()
+        serializer = self.get_serializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=user)
 
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Event created successfully",
+                data=serializer.data
+            )
+        )
 
 class EventListAPIView(generics.ListAPIView):
     queryset = Event.objects.all()
@@ -32,15 +116,82 @@ class EventListAPIView(generics.ListAPIView):
 
     @extend_schema(
         tags=[tag_names["event"]],
-        operation_id="List_Events",
+        operation_id="List all Events",
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
+class RetrieveUserEventsView(generics.RetrieveAPIView):
+    queryset = Event.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = EventSerializer
+    lookup_field = "pk"
+
+    @extend_schema(
+            tags=[tag_names['event']], 
+            operation_id="Retrieve all Event",
+            description="Retrieve all events available in the system."
+    )
+    def get(self, request, *args, **kwargs):
+        user_id = kwargs.get('pk')
+        events = Event.objects.filter(user__id=user_id)
+        try:
+            serializer = self.get_serializer(events, many=True)
+            data = serializer.data
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Events retrieved successfully",
+                data=[event.event_profile() for event in events]
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
+
+class EventDetailAPIView(generics.RetrieveAPIView):
+    serializer_class=EventSerializer
+    queryset=Event.objects.all()
+    parser_classes=[MultiPartParser, FormParser]
+    lookup_field="id"
+
+    @extend_schema(
+        tags=[tag_names["event"]],
+        operation_id="Retrieve a specific Event detail"
+    )
+    def get(self, *args, **kwargs):
+        event_id = kwargs.get(self.lookup_field)
+        try:
+            event = Event.objects.get(id=event_id)
+            serializer = self.get_serializer(event)
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Event retrieved successfully",
+                data=serializer.data
+            ))
+        except Event.DoesNotExist:
+            return Response(custom_response(
+                status_mthd=status.HTTP_404_NOT_FOUND,
+                status="error",
+                mssg="Event not found",
+                data=None
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
 
 class EventUpdateAPIView(generics.UpdateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
     lookup_field = "pk"
     http_method_names = ['patch']
 
@@ -51,10 +202,10 @@ class EventUpdateAPIView(generics.UpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
-
 class EventDeleteAPIView(generics.DestroyAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes=[IsAuthenticated, IsEventCreatorOrReadOnly]
     lookup_field = "pk"
 
     @extend_schema(
@@ -67,4 +218,348 @@ class EventDeleteAPIView(generics.DestroyAPIView):
         return Response(
             {"message": "Event deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
+        )
+
+# =========================
+# POSTS VIEWS
+# =========================
+
+class CreatePostContentView(generics.GenericAPIView):
+    serializer_class=PostContentSerializer
+    permission_classes=[IsAuthenticated]
+    parser_classes=[MultiPartParser, FormParser]
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Create a Post")
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Post created successfully",
+                data=serializer.data
+            )
+        )
+
+class UpdatePostContentView(generics.UpdateAPIView):
+    queryset = PostContent.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostContentSerializer
+    lookup_field = "pk"
+    http_method_names = ['patch']
+    parser_classes=[MultiPartParser, FormParser]
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Update a Post")
+    def patch(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=[tag_names['post']],
+        operation_id="Retrieve All Posts",
+        description="Retrieve all posts available in the system for the user's institution. "
+                    "Datasets with `is_repost=True` are reposted contents."
+    )
+)
+class ListPostContentView(generics.ListAPIView):
+    """
+    Retrieve all posts available to the authenticated user.
+    Users only see posts from their institution.
+    """
+    serializer_class = PostContentSerializer
+    permission_classes = [IsAuthenticated, CanViewPostContent]
+
+    def get_queryset(self):
+        user = self.request.user
+        return PostContent.objects.filter(user__university=user.university)
+
+    def list(self, request, *args, **kwargs):
+        posts = self.get_queryset()
+        serializer = self.get_serializer(posts, many=True)
+        return Response(custom_response(
+            status_mthd=status.HTTP_200_OK,
+            status="success",
+            mssg="Posts retrieved successfully",
+            data=[post.post_profile() for post in posts]
+        ))
+
+class RetrieveUsersPostContentView(generics.RetrieveAPIView):
+    queryset = PostContent.objects.all()
+    permission_classes=[IsAuthenticated, CanViewPostContent]
+    serializer_class = PostContentSerializer
+    lookup_field = "pk"
+
+    @extend_schema(
+            tags=[tag_names['post']], 
+            operation_id="Retrieve all Post",
+            description="Retrieve all posts available in the system.\nN.B: Dataset with the `is_repost` field set to _True_ are reposted contents."
+    )
+    def get(self, request, *args, **kwargs):
+        user_id = kwargs.get('pk')
+        print(f"USER ID: {user_id}")
+        posts = PostContent.objects.filter(user__id=user_id)
+        print(f"POST: {posts}")
+        try:
+            serializer = self.get_serializer(posts, many=True)
+            data = serializer.data
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Posts retrieved successfully",
+                data=[post.post_profile() for post in posts]
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
+
+class RetrieveDetailedPostContent(generics.RetrieveAPIView):
+    queryset = PostContent.objects.all()
+    permission_classes=[IsAuthenticated, CanViewPostContent]
+    serializer_class = PostContentSerializer
+    lookup_field = "pk"
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Retrieve a single Post")
+    def get(self, request, *args, **kwargs):
+        post = self.get_object()
+        try:
+            serializer = self.get_serializer(post)
+            data = serializer.data
+            return Response(custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Post retrieved successfully",
+                data=post.post_profile()
+            ))
+        except Exception as e:
+            return Response(custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg=str(e),
+                data=None
+            ))
+    
+class DeletePostContentView(generics.DestroyAPIView):
+    queryset = PostContent.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostContentSerializer
+    lookup_field = "pk"
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Delete a Post")
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Post deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+# =========================
+# POST INTERACTIONS VIEWS
+# =========================
+class LikePostContentView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PostLikesSerializer
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Like a Post", responses={200: PostLikesSerializer})
+    def post(self, request, *args, **kwargs):
+        post_id = request.data.get("post")
+        user = request.user
+
+        if not post_id:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="post_id is required",
+                    data=None
+                )
+            )
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        post_likes, created = PostLikes.objects.get_or_create(post=post)
+        if user in post_likes.likes.all():
+            # If user already liked → unlike
+            post_likes.likes.remove(user)
+            action = "unliked"
+        else:
+            # If user hasn't liked yet → like
+            post_likes.likes.add(user)
+            action = "liked"
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg=f"Post {action} successfully",
+                data={
+                    "post_id": post.id,
+                    "likes_count": post_likes.likes.count(),
+                    "liked_by": [u.id for u in post_likes.likes.all()]
+                }
+            )
+        )
+
+class CommentPostContentView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Comment on a Post")
+    def post(self, request, *args, **kwargs):
+        post_id = request.data.get("post")
+        user = request.user
+
+        if not post_id:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_400_BAD_REQUEST,
+                    status="error",
+                    mssg="post_id is required",
+                    data=None
+                )
+            )
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(commented_by=user, post=post)
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_201_CREATED,
+                    status="success",
+                    mssg="Comment added successfully",
+                    data=serializer.data
+                )
+            )
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_400_BAD_REQUEST,
+                status="error",
+                mssg="Failed to add comment",
+                data=serializer.errors
+            )
+        )
+
+class RetrievePostCommentsView(generics.RetrieveAPIView):
+    serializer_class = PostCommentsSerializer
+    permission_classes=[IsAuthenticated]
+    lookup_field = "post_id"
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Retrieve Comments for a Post")
+    def get(self, request, *args, **kwargs):
+        post_id = self.kwargs.get(self.lookup_field)
+
+        try:
+            post = PostContent.objects.get(id=post_id)
+        except PostContent.DoesNotExist:
+            return Response(
+                custom_response(
+                    status_mthd=status.HTTP_404_NOT_FOUND,
+                    status="error",
+                    mssg="Post not found",
+                    data=None
+                )
+            )
+
+        comments = post.post_comments.all()
+        serializer = self.get_serializer(comments, many=True)
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_200_OK,
+                status="success",
+                mssg="Comments retrieved successfully",
+                data=serializer.data
+            )
+        )
+
+class UpdateCommentView(generics.UpdateAPIView):
+    queryset = PostComments.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+    lookup_field = "id"
+    http_method_names = ['patch']
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Update a Comment", description="Update a comment on a post using the comment's ID.")
+    def patch(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+class DeleteCommentView(generics.DestroyAPIView):
+    queryset = PostComments.objects.all()
+    permission_classes=[IsAuthenticated]
+    serializer_class = PostCommentsSerializer
+    lookup_field = "id"
+
+    @extend_schema(tags=[tag_names['comment']], operation_id="Delete a Comment", description="Delete a comment on a post using the comment's ID.")
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Comment deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+class RepostContentView(generics.GenericAPIView):
+    serializer_class = RePostContentSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names["post"]], operation_id="Repost a content")
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(custom_response(
+            status_mthd=status.HTTP_200_OK,
+            status="success",
+            mssg="Reposted successfully",
+            data=serializer.data
+        ), )
+
+class SharePostContentView(generics.CreateAPIView):
+    serializer_class = SharePostSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=[tag_names['post']], operation_id="Share a Post")
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(shared_by=request.user)
+
+        return Response(
+            custom_response(
+                status_mthd=status.HTTP_201_CREATED,
+                status="success",
+                mssg="Post shared successfully",
+                data=serializer.data
+            )
         )

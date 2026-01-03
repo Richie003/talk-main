@@ -2,40 +2,68 @@ from django.urls import path, include
 from .views import (
     MarketPlaceProductCreateView,
     ListMarketPlaceProductsView,
+    GetProvidersMarketPlaceProductListView,
     ProvidersMarketPlaceProductListView,
     MarketPlaceProductDetailView,
     MarketPlaceProductUpdateView,
     MarketPlaceProductDeleteView,
+    MarketPlaceProductReviewCreateView,
 
     TakaProductCreateView,
     ListTakaProductsView,
     ProvidersTakaProductListView,
+    GetProvidersTakaProductListView,
     TakaProductDetailView,
     TakaProductUpdateView,
     TakaProductDeleteView,
-    SaveItemView
+    TakaProductReviewCreateView,
+    SaveItemView,
+    GetSavedItemsView,
+    DeleteSavedItemView,
+    ServiceCreateView,
+    ListServicesView,
+    ProvidersServicesListView,
+    ServiceDetailView,
+    ServiceUpdateView,
+    ServiceDeleteView
 )
 
 marketplace_urlpatterns = [
     path('create-product/', MarketPlaceProductCreateView.as_view(), name='create_product'),
     path('list-products/', ListMarketPlaceProductsView.as_view(), name='list_products'),
+    path('providers-products/<str:id>/', GetProvidersMarketPlaceProductListView.as_view(), name='providers_products'),
     path('product-detail/<slug:slug>/', MarketPlaceProductDetailView.as_view(), name='product_detail'),
     path('providers-products/', ProvidersMarketPlaceProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', MarketPlaceProductUpdateView.as_view(), name='product_detail'),
     path('delete-product/<str:id>/', MarketPlaceProductDeleteView.as_view(), name='delete_product'),
+    path('create-review/', MarketPlaceProductReviewCreateView.as_view(), name='create_review'),
 ]
 
 taka_urlpatterns = [
     path('create-product/', TakaProductCreateView.as_view(), name='create_product'),
     path('list-products/', ListTakaProductsView.as_view(), name='list_products'),
+    path('providers-products/<str:id>/', GetProvidersTakaProductListView.as_view(), name='providers_products'),
     path('product-detail/<slug:slug>/', TakaProductDetailView.as_view(), name='product_detail'),
     path('providers-products/', ProvidersTakaProductListView.as_view(), name='providers_products'),
     path('update-product/<slug:slug>/', TakaProductUpdateView.as_view(), name='product_detail'),
     path('delete-product/<str:id>/', TakaProductDeleteView.as_view(), name='delete_product'),
+    path('create-review/', TakaProductReviewCreateView.as_view(), name='create_review'),
+]
+
+service_urlpatterns = [
+    path('create-service/', ServiceCreateView.as_view(), name='create_service'),
+    path('list-services/', ListServicesView.as_view(), name='list_services'),
+    path('service-detail/<slug:slug>/', ServiceDetailView.as_view(), name='service_detail'),
+    path('providers-services/', ProvidersServicesListView.as_view(), name='providers_services'),
+    path('update-service/<slug:slug>/', ServiceUpdateView.as_view(), name='service_detail'),
+    path('delete-service/<str:id>/', ServiceDeleteView.as_view(), name='delete_service'),
 ]
 
 urlpatterns = [
     path("marketplace/", include(marketplace_urlpatterns)), 
     path("taka/", include(taka_urlpatterns)),
-    path("save-items/", SaveItemView.as_view())
+    path("services/", include(service_urlpatterns)),
+    path("save-items/", SaveItemView.as_view()),
+    path("saved-items/", GetSavedItemsView.as_view(), name='get_saved_items'),
+    path('saved-items/<int:product_id>/delete/', DeleteSavedItemView.as_view(), name='delete_saved_item'),
 ]

@@ -21,7 +21,10 @@ def taka_video_upload_path(instance, filename):
     return f"products/taka/vids/{instance.product.user.talk_id}/{slugify(instance.product.name)}-{filename}"
 
 def services_image_upload_path(instance, filename):
-    return f"services/imgs/{instance.product.user.talk_id}/{slugify(instance.product.business_name)}-{filename}"
+    return f"services/imgs/{instance.service.user.talk_id}/{slugify(instance.service.title)}-{filename}"
+
+def services_video_upload_path(instance, filename):
+    return f"services/vids/{instance.service.user.talk_id}/{slugify(instance.service.title)}-{filename}"
 
 class Product(ModelUtilsMixin, PolymorphicModel):
     """
@@ -39,26 +42,49 @@ class Product(ModelUtilsMixin, PolymorphicModel):
     approved = models.BooleanField(default=False)
 
 
-    # class Meta:
-    #     abstract = True
-
 
 class MarketPlaceProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='marketplace_products')
+
+    total_rating = models.IntegerField(default=0)
+    review_count = models.IntegerField(default=0)
+
+    # Optional: store the computed Bayesian rating for indexing/sorting
+    bayesian_rating = models.FloatField(default=0.0)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
     def __str__(self):
         return str(self.name)
 
     def save(self, *args, **kwargs):
-        if eval(self.user.user_role)[0] != 'service providers':
+        if self.user.user_role != 'service providers':
             raise ValueError("Only service providers can create products.")
         if not self.slug and self.id:  # id exists
             self.slug = f"{slugify(self.name)}-{self.id}"
         super().save(*args, **kwargs)
 
+    def compute_bayesian_rating(self, global_avg, m):
+        """
+        Bayesian weighted rating:
+        WR = (v/(v+m))R + (m/(v+m))C
+        """
+        v = self.review_count
+        if v == 0:
+            return 0
+
+        R = self.total_rating / v   # normal average
+        C = global_avg              # global marketplace average
+        WR = (v / (v + m)) * R + (m / (v + m)) * C
+        return round(WR, 3)  # nice rounding
+
+
 
     def product_profile(self):
             return {
                 "id": self.id,
+                "user": self.user.id,
                 "name": self.name,
                 "slug": self.slug,
                 "description": self.description,
@@ -119,10 +145,20 @@ class MarketPlaceProductReview(ModelUtilsMixin):
     rating = models.IntegerField(validators=[MinValueValidator(1)])
     comment = models.TextField(null=True, blank=True)
 
+    class Meta:
+        unique_together = ('product', 'user')
+
 # Everything TAKA...
 
 class TakaProduct(Product):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=False, related_name='taka_products')
+    total_rating = models.IntegerField(default=0)
+    review_count = models.IntegerField(default=0)
+    bayesian_rating = models.FloatField(default=0.0)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
     def __str__(self):
         return str(self.name)
 
@@ -131,11 +167,25 @@ class TakaProduct(Product):
             self.slug = f"{slugify(self.name)}-{self.id}"
         super().save(*args, **kwargs)
 
+    def compute_bayesian_rating(self, global_avg, m):
+        """
+        Bayesian weighted rating:
+        WR = (v/(v+m))R + (m/(v+m))C
+        """
+        v = self.review_count
+        if v == 0:
+            return 0
+
+        R = self.total_rating / v
+        C = global_avg
+        WR = (v / (v + m)) * R + (m / (v + m)) * C
+        return round(WR, 3)
     
 
     def product_profile(self):
             return {
                 "id": self.id,
+                "user": self.user.id,
                 "name": self.name,
                 "slug": self.slug,
                 "description": self.description,
@@ -194,9 +244,95 @@ class TakaReview(ModelUtilsMixin):
     rating = models.IntegerField(validators=[MinValueValidator(1)])
     comment = models.TextField(null=True, blank=True)
 
-class SavedItem(ModelUtilsMixin):
+    class Meta:
+        ordering = ["-created", "-updated"]
+        unique_together = ('product', 'user')
+
+class Service(ModelUtilsMixin):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='services')
+    slug = models.SlugField(unique=True, null=False, blank=True)
+    title = models.CharField(max_length=255, null=False)
+    description = models.TextField(null=False)
+    flat_rate = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=False,  default=0.00)
+    negotiable = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
+    def __str__(self):
+        return str(self.title)
+    
+    def save(self, *args, **kwargs):
+        if not self.slug and self.id:  # id exists
+            self.slug = f"{slugify(self.title)}-{self.id}"
+        super().save(*args, **kwargs)
+
+    def service_profile(self):
+        return {
+            "id": self.id,
+            "user": self.user.id,
+            "title": self.title,
+            "slug": self.slug,
+            "description": self.description,
+            "flat_rate": str(self.flat_rate),
+            "negotiable": str(self.negotiable),
+            "images": self.get_images(),
+            "videos": self.get_videos(),
+            "reviews": self.get_reviews(),
+            "created_by": str(self.user.first_name) + " " + str(self.user.last_name),
+            "created": self.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated": self.updated.strftime("%Y-%m-%d %H:%M:%S"),
+        }    
+
+    def get_images(self):
+        return [image.image.url for image in self.service_images.all() if image.image]
+
+    def get_videos(self):
+        return [video.video_path.url for video in self.service_videos.all() if video.video_path]
+
+    def get_reviews(self):
+        return [review.comment for review in self.service_reviews.all() if review.comment]
+
+    def get_average_rating(self):
+        if self.service_reviews.exists():
+            total_rating = sum(review.rating for review in self.service_reviews.all())
+            return total_rating / self.get_review_count()
+        return 0
+
+    def get_review_count(self):
+        return self.service_reviews.count()
+
+class ServicesImage(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_images')
+    image = models.ImageField(upload_to=services_image_upload_path, null=True, blank=True)
+
+    def __str__(self):
+        return f"Image for {self.service.title}"
+
+
+class ServicesVideo(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_videos')
+    video_path = models.FileField(upload_to=services_video_upload_path, null=True, blank=True)
+    video_url = models.URLField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Video for {self.service.title}"
+
+class ServiceReview(ModelUtilsMixin):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service_reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    rating = models.IntegerField(validators=[MinValueValidator(1)])
+    comment = models.TextField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created", "-updated"]
+
+class SavedProductItem(ModelUtilsMixin):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     product = models.ManyToManyField(Product, related_name='saved_items')
+
+    class Meta:
+        ordering = ["-created", "-updated"]
 
     def __str__(self):
         return f"{self.user.username}'s saved items"
@@ -221,9 +357,26 @@ class SavedItem(ModelUtilsMixin):
 
     def get_saved_item_count(self):
         return self.product.count()
-    
+
     def get_saved_item_details(self):
-        return [item.product_profile() for item in self.product.all()]
+        saved_items = []
+        for item in self.product.all():
+            print(f"IMAGES: {[image.image.url for image in item.marketplace_images.all() if image.image]}")
+            if hasattr(item, "product_profile"):
+                saved_items.append(item.product_profile())
+            else:
+                saved_items.append({
+                    "id": item.id,
+                    "vendorId": item.marketplace_images.all()[0].user.id,
+                    "name": item.name,
+                    "description": item.description,
+                    "category": item.category,
+                    "price": str(item.price),
+                    "discount": str(item.discount),
+                    "imageUrl": item.marketplace_images.all()[0].image.url if item.marketplace_images.exists() else None,
+                })
+        return saved_items
     
     def get_saved_item_by_id(self, product_id):
         return self.product.filter(id=product_id).first().product_profile() if self.product.filter(id=product_id).exists() else None
+    

@@ -1,15 +1,37 @@
 # serializers.py
 
-from .models import News, NewsImage
+from .models import (
+    News, 
+    NewsImage, 
+    Event, 
+    PostContent, 
+    PostImages, 
+    PostVideos, 
+    PostLikes, 
+    PostComments, 
+    SharePost, 
+    RePostContent, 
+    SavedEventItem
+)
 from rest_framework import serializers
-from .models import Event
+from utils.helpers import FormattedDateTimeField
 
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = ['id', 'user', 'event_name', 'event_description', 'event_image', 'event_date', 'event_fees', 'created', 'updated']
+        read_only_fields = ['id', 'user', 'created', 'updated']
 
+class SavedItemsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SavedEventItem
+        fields = [
+            "id",
+            "user",
+            "event",
+        ]
+        read_only_fields = ["id", "user"]
 
 class NewsImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,3 +67,107 @@ class NewsSerializer(serializers.ModelSerializer):
         for image in images:
             NewsImage.objects.create(news=news, image=image)
         return news
+
+class PostContentImageSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+
+    class Meta:
+        model = PostImages
+        fields = [
+            "id",
+            "post",
+            "image",
+            "created",
+            "updated"
+        ]
+        read_only_fields = ["id", "created", "updated", "post"]
+        extra_kwargs = {
+            'image': {'required': True}
+        }
+    
+    def create(self, validated_data):
+        return PostContent.objects.create(**validated_data)
+
+class PostContentSerializer(serializers.ModelSerializer):
+    created = FormattedDateTimeField(read_only=True)
+    updated = FormattedDateTimeField(read_only=True)
+    images = PostContentImageSerializer(source="post_images", many=True, read_only=True)
+    upload_images = serializers.ListField(child=serializers.FileField(allow_empty_file=True), write_only=True)
+    tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
+
+    class Meta:
+        model = PostContent
+        fields = [
+            'id', 
+            'user',
+            'title', 
+            'content', 
+            'images', 
+            'upload_images',
+            'tags', 
+            # 'likes', 
+            'is_sponsored',
+            'is_flagged',
+            'is_reported', 
+            'created', 
+            'updated'
+        ]
+
+        read_only_fields = ['id', 'user', 'created', 'updated', 'is_flagged', 'is_reported']
+        extra_kwargs = {
+            'upload_images': {'required': True}
+        }
+
+    def create(self, validated_data):
+        images = validated_data.pop("upload_images", [])
+        post = PostContent.objects.create(user=self.context["request"].user, **validated_data)
+        for img in images:
+            PostImages.objects.create(post=post, image=img)
+        return post
+
+class PostLikesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostLikes
+        fields = [
+            "post",
+            "likes"
+        ]
+        read_only_fields = ["likes",]
+
+
+class PostCommentsSerializer(serializers.ModelSerializer):
+    parent_comment = serializers.PrimaryKeyRelatedField(queryset=PostComments.objects.all(), required=False, allow_null=True)
+    class Meta:
+        model = PostComments
+        fields = [
+            "id",
+            "post",
+            "commented_by",
+            "comment",
+            "parent_comment"
+        ]
+        read_only_fields = ["id", "commented_by",]
+
+class RePostContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=RePostContent
+        fields=[
+            "user",
+            "original_post",
+            "additional_content"
+        ]
+        read_only_fields = ["user",]
+
+    def create(self, validated_data):
+        return RePostContent.objects.create(**validated_data)
+
+class SharePostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SharePost
+        fields = [
+            "post",
+            "shared_by",
+            "shared_with"
+        ]
+        read_only_fields = ["shared_by", "shared_with"]

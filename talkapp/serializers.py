@@ -1,6 +1,6 @@
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from .models import CustomUser, Individual, ServiceProvider
+from .models import CustomUser, Individual, ServiceProvider, SaveUserProfile
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -40,6 +40,29 @@ class CustomUserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+
+class CustomUserAnalyticsSerializer(serializers.ModelSerializer):
+    user_role = serializers.ChoiceField(choices=["service providers", "individuals"], read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "id",
+            "talk_id",
+            "email",
+            "first_name",
+            "last_name",
+            "user_role",
+            "gender",
+            "university",
+            "level",
+            "state",
+            "policy",
+            "email_verified",
+            "created",
+        ]
+        read_only_fields = ["id", "email_verified"]
+    
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
@@ -55,6 +78,17 @@ class UserLoginSerializer(serializers.Serializer):
     def create(self, validated_data):
         return validated_data
 
+class UpdateUserRoleSerializer(serializers.ModelSerializer):
+    user_role = serializers.ChoiceField(choices=["service providers", "individuals"], required=True)
+    class Meta:
+        model = CustomUser
+        fields = ["user_role"]
+
+    def update(self, instance, validated_data):
+        if validated_data:
+            instance.user_role = validated_data.get("user_role", instance.user_role)
+            instance.save()
+        return instance
 class RefreshTokenSerializer(serializers.Serializer):
     refresh = serializers.CharField(required=True)
 
@@ -72,7 +106,10 @@ class IndividualSerializer(serializers.ModelSerializer):
         model = Individual
         fields = [
             "phone_number",
-            "date_of_birth"
+            "date_of_birth",
+            "bio",
+            "interests",
+            "photo",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "user"]
 
@@ -85,14 +122,29 @@ class IndividualSerializer(serializers.ModelSerializer):
         if validated_data:
             instance.phone_number = validated_data.get("phone_number", instance.phone_number)
             instance.date_of_birth = validated_data.get("date_of_birth", instance.date_of_birth)
+            instance.bio = validated_data.get("bio", instance.bio)
+            instance.interests = validated_data.get("interests", instance.interests)
+            instance.photo = validated_data.get("photo", instance.photo)
             instance.save()
         return instance
 
 class ServiceProvidersSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
-        fields = "__all__"
-        read_only_fields = ["id", "created_at", "updated_at", "user", "address_verified"]
+        fields = [
+            "business_name",
+            "business_email",
+            "business_tel",
+            "business_type",
+            "address",
+            "description",
+            "logo",
+            "bio",
+            "created",
+            "updated",
+            "address_verified",
+        ]
+        read_only_fields = ["id", "created", "updated", "user", "address_verified"]
 
     def create(self, validated_data):
         try:
@@ -110,6 +162,8 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
             instance.business_type = validated_data.get("business_type", instance.business_type)
             instance.address = validated_data.get("address", instance.address)
             instance.description = validated_data.get("description", instance.description)
+            instance.logo = validated_data.get("logo", instance.logo)
+            instance.bio = validated_data.get("bio", instance.bio)
             instance.save()
         return instance
 
@@ -125,7 +179,7 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "level",
-            # "registration_number"
+            "user_role"
         ]
 
         def update(self, instance, validated_data):
@@ -134,7 +188,21 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
                 instance.first_name = validated_data.get("first_name", instance.first_name)
                 instance.last_name = validated_data.get("last_name", instance.last_name)
                 instance.level = validated_data.get("level", instance.level)
-                # instance.registration_number = validated_data.get("registration_number", instance.registration_number)
+                instance.user_role = validated_data.get("user_role", instance.user_role)
+                instance.save()
+            return instance
+
+class ConcealUseContactSerializer(serializers.ModelSerializer):
+    # hide_my_info = serializers.BooleanField(required=True)
+    class Meta:
+        model = CustomUser
+        fields =[
+            "hide_my_info",
+        ]
+
+        def update(self, instance, validated_data):
+            if validated_data:
+                instance.hide_my_info = validated_data.get("hide_my_info", instance.hide_my_info)
                 instance.save()
             return instance
 
@@ -182,3 +250,38 @@ class ResendEmailActivationSerializer(serializers.Serializer):
     def create(self, validated_data):
         return validated_data
 
+class GoogleSocialAuthSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+
+    class Meta:
+        fields = ["token"]
+
+    def create(self, validated_data):
+        return validated_data
+
+# ---------------- Save User Profile Serializer --------------------------
+
+class SaveUserProfileSerializer(serializers.ModelSerializer):
+    saved_user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        many=True
+    )
+
+    class Meta:
+        model = SaveUserProfile
+        fields = ["id", "user", "saved_user"]
+        read_only_fields = ["id", "user"]
+
+    def create(self, validated_data):
+        request_user = self.context["request"].user
+
+        # Extract the list of users to save
+        saved_users = validated_data.pop("saved_user", [])
+
+        # Get or create the parent record
+        profile, created = SaveUserProfile.objects.get_or_create(user=request_user)
+
+        # Add users to the M2M field
+        profile.save_user(*saved_users)
+
+        return profile

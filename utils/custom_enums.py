@@ -20,6 +20,9 @@ class AvailabilityStatus(BaseEnum):
     BUSY = "busy", "Busy"
     OFFLINE = "offline", "Offline"
 
+class RegistrationMethod(BaseEnum):
+    INAPP = "in_app", "In app"
+    GOOGLE = "google", "Google"
 
 class Level(BaseEnum):
     LEVEL_100 = "100", "100"
@@ -31,7 +34,8 @@ class Level(BaseEnum):
 
 class UserRole(BaseEnum):
     SERVICE_PROVIDERS = "service providers", "Service Providers"
-    INDIVIDUALS = "individuals", "Individuals"
+    INDIVIDUALS = "individuals", "Individuals",
+    NONE = "none", "None"
 
 # ~ ~ ~ Products ~ ~ ~ #
 
@@ -49,3 +53,22 @@ class ProductSize(BaseEnum):
     MEDIUM = "medium", "Medium"
     LARGE = "large", "Large"
     EXTRA_LARGE = "extra_large", "Extra Large"
+
+# ~ ~ ~ Chat ~ ~ ~ #
+
+class ChatMessageStatus(BaseEnum):
+    SENT = "sent", "Sent"
+    DELIVERED = "delivered", "Delivered"
+    READ = "read", "Read"
+
+class ParticipantRole(BaseEnum):
+    ADMIN = "admin", "Admin"
+    MEMBER = "member", "Member"
+
+# message types
+class MessageType(BaseEnum):
+    TEXT = "text", "Text"
+    IMAGE = "image", "Image"
+    FILE = "file", "File"
+    SYSTEM = "system", "System"
+    REACTION = "reaction", "Reaction"

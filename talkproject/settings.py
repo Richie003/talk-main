@@ -34,6 +34,7 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS += ['127.0.0.1']
 
 
 # Application definition
@@ -47,10 +48,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    # 'drf_yasg',
+    'channels',
+    'django.contrib.sites',
     'drf_spectacular',
     'corsheaders',
+    'storages',
     'talkapp',
+    'talkchat',
     'talkcontent',
     'talkmarketplace',
 ]
@@ -65,6 +69,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+)
 
 ROOT_URLCONF = 'talkproject.urls'
 
@@ -84,16 +92,32 @@ TEMPLATES = [
     },
 ]
 
+ASGI_APPLICATION = 'talkproject.asgi.application'
 WSGI_APPLICATION = 'talkproject.wsgi.application'
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},  # Use localhost if not in Docker
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("DATABASE_NAME"),
+            "USER": env("DATABASE_USER"),
+            "PASSWORD": env("DATABASE_PASSWORD"),
+            "HOST": env("DATABASE_HOST"),
+            "PORT": env.int("DATABASE_PORT"),
     }
 }
 
@@ -130,12 +154,16 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # Default primary key field type
@@ -156,6 +184,10 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
+        'permissions.posts.CanViewPostContent',
+        'permissions.posts.CanEditDeletePostComment',
+        'permissions.reviews.CanViewProducts',
+        'permissions.reviews.CanReviewProducts',
     ],
     
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -233,3 +265,15 @@ EMAIL_PORT = env.int("EMAIL_PORT")
 EMAIL_USE_TLS = False
 EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+# Google OAuth
+GOOGLE_CLIENT_ID=env.list("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET=env("GOOGLE_CLIENT_SECRET")
+# AWS S3 Settings
+AWS_SECRET_ACCESS_KEY=env("AWS_SECRET_ACCESS_KEY")
+AWS_ACCESS_KEY_ID=env("AWS_ACCESS_KEY_ID")
+AWS_STORAGE_BUCKET_NAME=env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME=env("AWS_S3_REGION_NAME")
+AWS_LOCATION=env("AWS_LOCATION")
+AWS_S3_FILE_OVERWRITE=env.bool("AWS_S3_FILE_OVERWRITE")
+AWS_QUERYSTRING_EXPIRE=env.int("AWS_QUERYSTRING_EXPIRE")
+AWS_S3_CUSTOM_DOMAIN=env("AWS_S3_CUSTOM_DOMAIN")
