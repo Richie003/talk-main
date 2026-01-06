@@ -13,7 +13,7 @@ User = settings.AUTH_USER_MODEL
 
 
 def upload_to_instance_slug(instance, filename):
-    # store attachments under conversation id to make it easy to list for backups
+    # store attachments under conversation id to make it easy to list for backups.
     conv_id = getattr(instance.conversation, "id", "unassigned")
     return f"chat_attachments/{conv_id}/{filename}"
 
@@ -38,7 +38,7 @@ class Conversation(ModelUtilsMixin):
         related_name="+",
         null=True,
         blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.SET_NULL
     )
 
     last_activity = models.DateTimeField(blank=True, null=True)
